@@ -1,137 +1,140 @@
+// Huffman encoding is a compression technique that replaces common strings with shorter codes.
+// Ugh I wish we didn't have to implement this, but the other endpoint is allowed to use it.
+
 // Taken from https://github.com/hyperium/h3/blob/master/h3/src/qpack/prefix_string/decode.rs
 // License: MIT
 
 #[derive(Debug, Default, PartialEq, Clone)]
 pub struct BitWindow {
-	pub byte: u32,
-	pub bit: u32,
-	pub count: u32,
+    pub byte: u32,
+    pub bit: u32,
+    pub count: u32,
 }
 
 impl BitWindow {
-	pub fn new() -> Self {
-		Self::default()
-	}
+    pub fn new() -> Self {
+        Self::default()
+    }
 
-	pub fn forwards(&mut self, step: u32) {
-		self.bit += self.count;
+    pub fn forwards(&mut self, step: u32) {
+        self.bit += self.count;
 
-		self.byte += self.bit / 8;
-		self.bit %= 8;
+        self.byte += self.bit / 8;
+        self.bit %= 8;
 
-		self.count = step;
-	}
+        self.count = step;
+    }
 
-	pub fn opposite_bit_window(&self) -> BitWindow {
-		BitWindow {
-			byte: self.byte,
-			bit: self.bit,
-			count: 8 - (self.bit % 8),
-		}
-	}
+    pub fn opposite_bit_window(&self) -> BitWindow {
+        BitWindow {
+            byte: self.byte,
+            bit: self.bit,
+            count: 8 - (self.bit % 8),
+        }
+    }
 }
 
 use thiserror::Error;
 
 #[derive(Error, Debug, PartialEq)]
 pub enum Error {
-	#[error("missing bits: {0:?}")]
-	MissingBits(BitWindow),
+    #[error("missing bits: {0:?}")]
+    MissingBits(BitWindow),
 
-	#[error("unhandled: {0:?} {1:?}")]
-	Unhandled(BitWindow, usize),
+    #[error("unhandled: {0:?} {1:?}")]
+    Unhandled(BitWindow, usize),
 }
 
 #[derive(Clone, Debug)]
 enum DecodeValue {
-	Partial(&'static HuffmanDecoder),
-	Sym(u8),
+    Partial(&'static HuffmanDecoder),
+    Sym(u8),
 }
 
 #[derive(Clone, Debug)]
 struct HuffmanDecoder {
-	lookup: u32,
-	table: &'static [DecodeValue],
+    lookup: u32,
+    table: &'static [DecodeValue],
 }
 
 impl HuffmanDecoder {
-	fn check_eof(&self, bit_pos: &mut BitWindow, input: &[u8]) -> Result<Option<u32>, Error> {
-		use std::cmp::Ordering;
-		match ((bit_pos.byte + 1) as usize).cmp(&input.len()) {
-			// Position is out-of-range
-			Ordering::Greater => {
-				return Ok(None);
-			}
-			// Position is on the last byte
-			Ordering::Equal => {
-				let side = bit_pos.opposite_bit_window();
+    fn check_eof(&self, bit_pos: &mut BitWindow, input: &[u8]) -> Result<Option<u32>, Error> {
+        use std::cmp::Ordering;
+        match ((bit_pos.byte + 1) as usize).cmp(&input.len()) {
+            // Position is out-of-range
+            Ordering::Greater => {
+                return Ok(None);
+            }
+            // Position is on the last byte
+            Ordering::Equal => {
+                let side = bit_pos.opposite_bit_window();
 
-				let rest = match read_bits(input, side.byte, side.bit, side.count) {
-					Ok(x) => x,
-					Err(()) => {
-						return Err(Error::MissingBits(side));
-					}
-				};
+                let rest = match read_bits(input, side.byte, side.bit, side.count) {
+                    Ok(x) => x,
+                    Err(()) => {
+                        return Err(Error::MissingBits(side));
+                    }
+                };
 
-				let eof_filler = ((2u16 << (side.count - 1)) - 1) as u8;
-				if rest & eof_filler == eof_filler {
-					return Ok(None);
-				}
-			}
-			Ordering::Less => {}
-		}
-		Err(Error::MissingBits(bit_pos.clone()))
-	}
+                let eof_filler = ((2u16 << (side.count - 1)) - 1) as u8;
+                if rest & eof_filler == eof_filler {
+                    return Ok(None);
+                }
+            }
+            Ordering::Less => {}
+        }
+        Err(Error::MissingBits(bit_pos.clone()))
+    }
 
-	fn fetch_value(&self, bit_pos: &mut BitWindow, input: &[u8]) -> Result<Option<u32>, Error> {
-		match read_bits(input, bit_pos.byte, bit_pos.bit, bit_pos.count) {
-			Ok(value) => Ok(Some(value as u32)),
-			Err(()) => self.check_eof(bit_pos, input),
-		}
-	}
+    fn fetch_value(&self, bit_pos: &mut BitWindow, input: &[u8]) -> Result<Option<u32>, Error> {
+        match read_bits(input, bit_pos.byte, bit_pos.bit, bit_pos.count) {
+            Ok(value) => Ok(Some(value as u32)),
+            Err(()) => self.check_eof(bit_pos, input),
+        }
+    }
 
-	fn decode_next(&self, bit_pos: &mut BitWindow, input: &[u8]) -> Result<Option<u8>, Error> {
-		bit_pos.forwards(self.lookup);
+    fn decode_next(&self, bit_pos: &mut BitWindow, input: &[u8]) -> Result<Option<u8>, Error> {
+        bit_pos.forwards(self.lookup);
 
-		let value = match self.fetch_value(bit_pos, input) {
-			Ok(Some(value)) => value as usize,
-			Ok(None) => return Ok(None),
-			Err(err) => return Err(err),
-		};
+        let value = match self.fetch_value(bit_pos, input) {
+            Ok(Some(value)) => value as usize,
+            Ok(None) => return Ok(None),
+            Err(err) => return Err(err),
+        };
 
-		let at_value = match (self.table).get(value) {
-			Some(x) => x,
-			None => return Err(Error::Unhandled(bit_pos.clone(), value)),
-		};
+        let at_value = match (self.table).get(value) {
+            Some(x) => x,
+            None => return Err(Error::Unhandled(bit_pos.clone(), value)),
+        };
 
-		match at_value {
-			DecodeValue::Sym(x) => Ok(Some(*x)),
-			DecodeValue::Partial(d) => d.decode_next(bit_pos, input),
-		}
-	}
+        match at_value {
+            DecodeValue::Sym(x) => Ok(Some(*x)),
+            DecodeValue::Partial(d) => d.decode_next(bit_pos, input),
+        }
+    }
 }
 
 /// Read `len` bits from the `src` slice at the specified position
 ///
 /// Never read more than 8 bits at a time. `bit_offset` may be larger than 8.
 fn read_bits(src: &[u8], mut byte_offset: u32, mut bit_offset: u32, len: u32) -> Result<u8, ()> {
-	if len == 0 || len > 8 || src.len() as u32 * 8 < (byte_offset * 8) + bit_offset + len {
-		return Err(());
-	}
+    if len == 0 || len > 8 || src.len() as u32 * 8 < (byte_offset * 8) + bit_offset + len {
+        return Err(());
+    }
 
-	// Deal with `bit_offset` > 8
-	byte_offset += bit_offset / 8;
-	bit_offset -= (bit_offset / 8) * 8;
+    // Deal with `bit_offset` > 8
+    byte_offset += bit_offset / 8;
+    bit_offset -= (bit_offset / 8) * 8;
 
-	Ok(if bit_offset + len <= 8 {
-		// Read all the bits from a single byte
-		(src[byte_offset as usize] << bit_offset) >> (8 - len)
-	} else {
-		// The range of bits spans over 2 bytes
-		let mut result = (src[byte_offset as usize] as u16) << 8;
-		result |= src[byte_offset as usize + 1] as u16;
-		((result << bit_offset) >> (16 - len)) as u8
-	})
+    Ok(if bit_offset + len <= 8 {
+        // Read all the bits from a single byte
+        (src[byte_offset as usize] << bit_offset) >> (8 - len)
+    } else {
+        // The range of bits spans over 2 bytes
+        let mut result = (src[byte_offset as usize] as u16) << 8;
+        result |= src[byte_offset as usize + 1] as u16;
+        ((result << bit_offset) >> (16 - len)) as u8
+    })
 }
 
 macro_rules! bits_decode {
@@ -331,31 +334,31 @@ bits_decode![
     ];
 
 pub struct DecodeIter<'a> {
-	bit_pos: BitWindow,
-	content: &'a Vec<u8>,
+    bit_pos: BitWindow,
+    content: &'a Vec<u8>,
 }
 
 impl<'a> Iterator for DecodeIter<'a> {
-	type Item = Result<u8, Error>;
+    type Item = Result<u8, Error>;
 
-	fn next(&mut self) -> Option<Self::Item> {
-		match HPACK_STRING.decode_next(&mut self.bit_pos, self.content) {
-			Ok(Some(x)) => Some(Ok(x)),
-			Err(err) => Some(Err(err)),
-			Ok(None) => None,
-		}
-	}
+    fn next(&mut self) -> Option<Self::Item> {
+        match HPACK_STRING.decode_next(&mut self.bit_pos, self.content) {
+            Ok(Some(x)) => Some(Ok(x)),
+            Err(err) => Some(Err(err)),
+            Ok(None) => None,
+        }
+    }
 }
 
 pub trait HpackStringDecode {
-	fn hpack_decode(&self) -> DecodeIter;
+    fn hpack_decode(&self) -> DecodeIter;
 }
 
 impl HpackStringDecode for Vec<u8> {
-	fn hpack_decode(&self) -> DecodeIter {
-		DecodeIter {
-			bit_pos: BitWindow::new(),
-			content: self,
-		}
-	}
+    fn hpack_decode(&self) -> DecodeIter {
+        DecodeIter {
+            bit_pos: BitWindow::new(),
+            content: self,
+        }
+    }
 }

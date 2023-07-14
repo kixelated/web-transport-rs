@@ -1,84 +1,113 @@
+use async_std::net::ToSocketAddrs;
 use std::io;
-
 use thiserror::Error;
 
-use crate::{h3, settings, Session};
+use crate::{h3, Session};
 
-// Utility method to resolve a given URL.
-pub async fn dial(client: &quinn::Endpoint, uri: &http::Uri) -> Result<quinn::Connecting, quinn::ConnectError> {
-	let authority = uri
-		.authority()
-		.ok_or(quinn::ConnectError::InvalidDnsName("".to_string()))?;
+/// A utility method to resolve a given WebTransport URL and connect to the QUIC server.
+/// WebTransport URLs are of the form `https://host:port/path`.
+pub async fn dial(
+    client: &quinn::Endpoint,
+    uri: &http::Uri,
+) -> Result<quinn::Connecting, quinn::ConnectError> {
+    let authority = uri
+        .authority()
+        .ok_or(quinn::ConnectError::InvalidDnsName("".to_string()))?;
 
-	// TODO error on username:password in host
-	let host = authority.host();
-	let port = authority.port().map(|p| p.as_u16()).unwrap_or(443);
+    // TODO error on username:password in host
+    let host = authority.host();
+    let port = authority.port().map(|p| p.as_u16()).unwrap_or(443);
 
-	//let temp = host.clone(); // not sure why tokio takes ownership
-	let mut remotes = match tokio::net::lookup_host((host, port)).await {
-		Ok(remotes) => remotes,
-		Err(_) => return Err(quinn::ConnectError::InvalidDnsName(host.to_string())),
-	};
+    // Look up the DNS entry.
+    let mut remotes = match (host, port).to_socket_addrs().await {
+        Ok(remotes) => remotes,
+        Err(_) => return Err(quinn::ConnectError::InvalidDnsName(host.to_string())),
+    };
 
-	let remote = match remotes.next() {
-		Some(remote) => remote,
-		None => return Err(quinn::ConnectError::InvalidDnsName(host.to_string())),
-	};
+    // Return the first entry.
+    let remote = match remotes.next() {
+        Some(remote) => remote,
+        None => return Err(quinn::ConnectError::InvalidDnsName(host.to_string())),
+    };
 
-	client.connect(remote, host)
+    // Connect to the server using the addr we just resolved.
+    client.connect(remote, host)
 }
 
+/// An error returned when connecting to a WebTransport endpoint.
 #[derive(Error, Debug)]
 pub enum ConnectError {
-	#[error("unexpected end of stream")]
-	UnexpectedEnd,
+    #[error("unexpected end of stream")]
+    UnexpectedEnd,
 
-	#[error("connection error")]
-	Connection(#[from] quinn::ConnectionError),
+    #[error("connection error")]
+    Connection(#[from] quinn::ConnectionError),
 
-	#[error("failed to write")]
-	WriteError(#[from] quinn::WriteError),
+    #[error("failed to write")]
+    WriteError(#[from] quinn::WriteError),
 
-	#[error("failed to read")]
-	ReadError(#[from] quinn::ReadError),
+    #[error("failed to read")]
+    ReadError(#[from] quinn::ReadError),
 
-	#[error("failed to exchange h3 settings")]
-	SettingsError(#[from] settings::SettingsError),
+    #[error("failed to exchange h3 settings")]
+    SettingsError(#[from] h3::SettingsError),
 
-	#[error("failed to exchange h3 connect")]
-	ConnectError(#[from] h3::ConnectError),
+    #[error("failed to exchange h3 connect")]
+    ConnectError(#[from] h3::ConnectError),
 }
 
+/// Connect to a WebTransport server at the given URI.
+/// The URI must be of the form `https://host:port/path` or else the server will reject it.
 pub async fn connect(conn: quinn::Connection, uri: &http::Uri) -> Result<Session, ConnectError> {
-	let control = settings::connect(&conn).await?;
-	let mut connect = conn.open_bi().await?;
+    // Perform the H3 handshake by sending/reciving SETTINGS frames.
+    let control = h3::settings(&conn).await?;
 
-	let mut buf = Vec::new();
-	h3::ConnectRequest { uri: uri.clone() }.encode(&mut buf); // TODO avoid clone
-	connect.0.write_all(&buf).await?;
+    // Create a new stream that will be used to send the CONNECT frame.
+    let mut connect = conn.open_bi().await?;
 
-	buf.clear();
+    // Create a new CONNECT request that we'll send using HTTP/3
+    // TODO avoid cloning here
+    let _req = h3::ConnectRequest { uri: uri.clone() };
 
-	loop {
-		// Read more data into the buffer.
-		let chunk = connect.1.read_chunk(usize::MAX, true).await?;
-		let chunk = chunk.ok_or(ConnectError::UnexpectedEnd)?;
-		buf.extend_from_slice(&chunk.bytes); // TODO avoid copying on the first loop.
+    // Encode our connect request into a buffer and write it to the stream.
+    let mut buf = Vec::new();
+    h3::ConnectRequest { uri: uri.clone() }.encode(&mut buf); // TODO avoid clone
+    connect.0.write_all(&buf).await?;
 
-		let mut limit = io::Cursor::new(&buf);
+    buf.clear();
 
-		let res = match h3::ConnectResponse::decode(&mut limit) {
-			Ok(res) => res,
-			Err(h3::ConnectError::UnexpectedEnd(_)) => continue,
-			Err(e) => return Err(e.into()),
-		};
+    // Read the response from the server, buffering more data until we get a full response.
+    loop {
+        // Read more data into the buffer.
+        // We use the chunk API here instead of read_buf literally just to return a quinn::ReadError instead of io::Error.
+        let chunk = connect.1.read_chunk(usize::MAX, true).await?;
+        let chunk = chunk.ok_or(ConnectError::UnexpectedEnd)?;
+        buf.extend_from_slice(&chunk.bytes); // TODO avoid copying on the first loop.
 
-		if res.status != http::StatusCode::OK {
-			return Err(h3::ConnectError::ErrorStatus(res.status).into());
-		}
+        // Create a cursor that will tell us how much of the buffer was read.
+        let mut limit = io::Cursor::new(&buf);
 
-		let session = Session::new(conn, control, connect);
+        // Try to decode the response.
+        let res = match h3::ConnectResponse::decode(&mut limit) {
+            // It worked, return it.
+            Ok(res) => res,
 
-		return Ok(session);
-	}
+            // We didn't have enough data in the buffer, so we'll read more and try again.
+            Err(h3::ConnectError::UnexpectedEnd(_)) => continue,
+
+            // Some other fatal error.
+            Err(e) => return Err(e.into()),
+        };
+
+        // Throw an error if we didn't get a 200 OK.
+        if res.status != http::StatusCode::OK {
+            return Err(h3::ConnectError::ErrorStatus(res.status).into());
+        }
+
+        // Return the resulting session with a reference to the control/connect streams.
+        // If either stream is closed, then the session will be closed, so we need to keep them around.
+        let session = Session::new(conn, control, connect);
+
+        return Ok(session);
+    }
 }
