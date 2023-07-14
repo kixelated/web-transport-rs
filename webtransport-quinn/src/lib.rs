@@ -27,10 +27,15 @@
 mod client;
 mod server;
 mod session;
+mod stream;
 
 pub use client::*;
 pub use server::*;
 pub use session::*;
+pub use stream::*;
+
+#[cfg(feature = "generic")]
+pub mod generic;
 
 // Internal
 mod connect;

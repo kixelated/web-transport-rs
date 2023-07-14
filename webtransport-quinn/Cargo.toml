@@ -14,6 +14,7 @@ categories = ["network-programming", "web-programming"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+bytes = "1"
 quinn = "0.10"
 quinn-proto = "0.10"
 http = "0.2"
@@ -21,6 +22,8 @@ thiserror = "1"
 futures = "0.3"
 async-std = "1.11"
 webtransport-proto = { path = "../webtransport-proto" }
+webtransport-generic = { path = "../webtransport-generic" }
+tokio-util = "0.7"
 
 [dev-dependencies]
 rcgen = "0.11"

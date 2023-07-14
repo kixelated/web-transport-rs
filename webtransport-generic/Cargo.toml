@@ -1,15 +1,15 @@
 [package]
 name = "webtransport-generic"
 description = "Generic trait to implement a webtransport API"
-authors = [ "Luke Curley", "François Michel" ]
+authors = ["Luke Curley", "François Michel"]
 repository = "https://github.com/kixelated/webtransport-rs"
 license = "MIT OR Apache-2.0"
 
 version = "0.1.0"
 edition = "2021"
 
-keywords = [ "quic", "http3", "webtransport"]
-categories = [ "multimedia", "network-programming", "web-programming" ]
+keywords = ["quic", "http3", "webtransport"]
+categories = ["multimedia", "network-programming", "web-programming"]
 
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -18,5 +18,3 @@ categories = [ "multimedia", "network-programming", "web-programming" ]
 bytes = "1"
 thiserror = "1.0.21"
 log = "0.4"
-
-anyhow = "1.0.70"

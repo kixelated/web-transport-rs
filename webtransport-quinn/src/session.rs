@@ -3,7 +3,9 @@ use std::{
     sync::Arc,
 };
 
-use crate::{Connect, Settings};
+use thiserror::Error;
+
+use crate::{Connect, RecvStream, SendStream, Settings};
 
 use webtransport_proto::{Frame, StreamUni, VarInt};
 
@@ -33,6 +35,21 @@ pub struct Session {
     header_bi: Vec<u8>,
 }
 
+#[derive(Error, Debug)]
+pub enum SessionError {
+    #[error("connection error")]
+    ConnectionError(#[from] quinn::ConnectionError),
+
+    #[error("write error")]
+    WriteError(#[from] quinn::WriteError),
+
+    #[error("read error")]
+    ReadError(#[from] quinn::ReadError),
+
+    #[error("unexpected end of stream")]
+    UnexpectedEnd,
+}
+
 impl Session {
     pub(crate) fn new(conn: quinn::Connection, settings: Settings, connect: Connect) -> Self {
         // The session ID is the stream ID of the CONNECT request.
@@ -59,29 +76,23 @@ impl Session {
     }
 
     /// Open a new unidirectional stream. See [`quinn::Connection::open_uni`].
-    pub async fn open_uni(&self) -> Result<quinn::SendStream, quinn::WriteError> {
+    pub async fn open_uni(&self) -> Result<SendStream, SessionError> {
         let mut send = self.conn.open_uni().await?;
         send.write_all(&self.header_uni).await?;
-        Ok(send)
+        Ok(SendStream::new(send))
     }
 
     /// Open a new bidirectional stream. See [`quinn::Connection::open_bi`].
-    pub async fn open_bi(
-        &self,
-    ) -> Result<(quinn::SendStream, quinn::RecvStream), quinn::WriteError> {
+    pub async fn open_bi(&self) -> Result<(SendStream, RecvStream), SessionError> {
         let (mut send, recv) = self.conn.open_bi().await?;
         send.write_all(&self.header_bi).await?;
-        Ok((send, recv))
+        Ok((SendStream::new(send), RecvStream::new(recv)))
     }
 
     /// Accept a new unidirectional stream. See [`quinn::Connection::accept_uni`].
-    pub async fn accept_uni(&self) -> Result<quinn::RecvStream, quinn::ReadExactError> {
+    pub async fn accept_uni(&self) -> Result<RecvStream, SessionError> {
         loop {
-            let mut recv = self
-                .conn
-                .accept_uni()
-                .await
-                .map_err(quinn::ReadError::ConnectionLost)?;
+            let mut recv = self.conn.accept_uni().await?;
 
             let typ = StreamUni(read_varint(&mut recv).await?);
             if typ.is_reserved() {
@@ -100,19 +111,13 @@ impl Session {
                 return Err(quinn::ReadError::UnknownStream.into());
             }
 
-            return Ok(recv);
+            return Ok(RecvStream::new(recv));
         }
     }
 
     /// Accept a new bidirectional stream. See [`quinn::Connection::accept_bi`].
-    pub async fn accept_bi(
-        &self,
-    ) -> Result<(quinn::SendStream, quinn::RecvStream), quinn::ReadExactError> {
-        let (send, mut recv) = self
-            .conn
-            .accept_bi()
-            .await
-            .map_err(quinn::ReadError::ConnectionLost)?;
+    pub async fn accept_bi(&self) -> Result<(SendStream, RecvStream), SessionError> {
+        let (send, mut recv) = self.conn.accept_bi().await?;
 
         let typ = Frame(read_varint(&mut recv).await?);
         if typ != Frame::WEBTRANSPORT {
@@ -125,7 +130,7 @@ impl Session {
             return Err(quinn::ReadError::UnknownStream.into());
         }
 
-        Ok((send, recv))
+        Ok((SendStream::new(send), RecvStream::new(recv)))
     }
 
     pub async fn read_datagram(&self) {
@@ -164,16 +169,24 @@ impl DerefMut for Session {
 }
 
 // Read a varint from the stream.
-async fn read_varint(stream: &mut quinn::RecvStream) -> Result<VarInt, quinn::ReadExactError> {
+async fn read_varint(stream: &mut quinn::RecvStream) -> Result<VarInt, SessionError> {
     // 8 bytes is the max size of a varint
     let mut buf = [0; 8];
 
     // Read the first byte because it includes the length.
-    stream.read_exact(&mut buf[0..1]).await?;
+    match stream.read_exact(&mut buf[0..1]).await {
+        Ok(()) => (),
+        Err(quinn::ReadExactError::FinishedEarly) => return Err(SessionError::UnexpectedEnd),
+        Err(quinn::ReadExactError::ReadError(e)) => return Err(e.into()),
+    };
 
     // 0b00 = 1, 0b01 = 2, 0b10 = 4, 0b11 = 8
     let size = 1 << (buf[0] >> 6);
-    stream.read_exact(&mut buf[1..size]).await?;
+    match stream.read_exact(&mut buf[1..size]).await {
+        Ok(()) => (),
+        Err(quinn::ReadExactError::FinishedEarly) => return Err(SessionError::UnexpectedEnd),
+        Err(quinn::ReadExactError::ReadError(e)) => return Err(e.into()),
+    };
 
     // Use a cursor to read the varint on the stack.
     let mut cursor = std::io::Cursor::new(&buf[..size]);
