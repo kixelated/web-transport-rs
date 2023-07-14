@@ -1,2 +1,2 @@
 [workspace]
-members = ["webtransport-quinn", "webtransport-proto"]
+members = ["webtransport-quinn", "webtransport-proto", "webtransport-generic"]

@@ -127,42 +127,42 @@ pub trait RecvStream {
 }
 
 pub async fn accept_recv<C: Connection>(conn: &mut C) -> anyhow::Result<Option<C::RecvStream>, Error> {
-    Ok(std::future::poll_fn(|cx| conn.poll_accept_recv(cx)).await?)
+    std::future::poll_fn(|cx| conn.poll_accept_recv(cx)).await
 
 }
 
 pub async fn accept_recv_shared<C: Connection>(conn: Arc<std::sync::Mutex<Box<C>>>) -> anyhow::Result<Option<C::RecvStream>, Error> {
-    Ok(std::future::poll_fn(|cx| conn.lock().unwrap().poll_accept_recv(cx)).await?)
+    std::future::poll_fn(|cx| conn.lock().unwrap().poll_accept_recv(cx)).await
 
 }
 
 pub async fn accept_bidi<C: Connection>(conn: &mut C) -> anyhow::Result<Option<C::BidiStream>, Error> {
-    Ok(std::future::poll_fn(|cx| conn.poll_accept_bidi(cx)).await?)
+    std::future::poll_fn(|cx| conn.poll_accept_bidi(cx)).await
 
 }
 
 pub async fn accept_bidi_shared<C: Connection>(conn: Arc<std::sync::Mutex<Box<C>>>) -> anyhow::Result<Option<C::BidiStream>, Error> {
-    Ok(std::future::poll_fn(|cx| conn.lock().unwrap().poll_accept_bidi(cx)).await?)
+    std::future::poll_fn(|cx| conn.lock().unwrap().poll_accept_bidi(cx)).await
 
 }
 
 pub async fn open_send<C: Connection>(conn: &mut C) -> anyhow::Result<C::SendStream, Error> {
-    Ok(std::future::poll_fn(|cx| conn.poll_open_send(cx)).await?)
+    std::future::poll_fn(|cx| conn.poll_open_send(cx)).await
 
 }
 
 pub async fn open_send_shared<C: Connection>(conn: Arc<std::sync::Mutex<Box<C>>>) -> anyhow::Result<C::SendStream, Error> {
-    Ok(std::future::poll_fn(|cx| conn.lock().unwrap().poll_open_send(cx)).await?)
+    std::future::poll_fn(|cx| conn.lock().unwrap().poll_open_send(cx)).await
 
 }
 
 pub async fn open_bidi<C: Connection>(conn: &mut C) -> anyhow::Result<C::BidiStream, Error> {
-    Ok(std::future::poll_fn(|cx| conn.poll_open_bidi(cx)).await?)
+    std::future::poll_fn(|cx| conn.poll_open_bidi(cx)).await
 
 }
 
 pub async fn open_bidi_shared<C: Connection>(conn: Arc<std::sync::Mutex<Box<C>>>) -> anyhow::Result<C::BidiStream, Error> {
-    Ok(std::future::poll_fn(|cx| conn.lock().unwrap().poll_open_bidi(cx)).await?)
+    std::future::poll_fn(|cx| conn.lock().unwrap().poll_open_bidi(cx)).await
 
 }
 
@@ -180,7 +180,7 @@ pub async fn recv<B: Buf, BM: BufMut, R: RecvStream<Buf = B>>(recv: &mut R , out
 }
 
 pub async fn send<B: Buf, S: SendStreamUnframed>(send: &mut S, buf: &mut B) -> anyhow::Result<usize> {
-    Ok(std::future::poll_fn(|cx| send.poll_send(cx, buf)).await?)
+    std::future::poll_fn(|cx| send.poll_send(cx, buf)).await
 }
 
 

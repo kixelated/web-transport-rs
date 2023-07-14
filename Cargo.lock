@@ -1273,6 +1273,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "webtransport-generic"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bytes",
+ "log",
+ "thiserror",
+]
+
+[[package]]
 name = "webtransport-proto"
 version = "0.2.1"
 dependencies = [
@@ -1287,7 +1297,6 @@ version = "0.2.1"
 dependencies = [
  "anyhow",
  "async-std",
- "bytes",
  "env_logger",
  "futures",
  "http",
