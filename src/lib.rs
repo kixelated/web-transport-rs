@@ -24,7 +24,6 @@
 //! If you want to support multiple WebTransport sessions over the same QUIC connection... you should just dial a new QUIC connection instead.
 
 // External
-
 mod client;
 mod server;
 mod session;
