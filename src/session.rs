@@ -11,7 +11,7 @@ use std::{
 use super::h3;
 
 /// An established WebTransport session, acting like a full QUIC connection.
-/// This is a thin wrapper around [`quinn::Connection`] using Deref to access any methods that are not overloaded.
+/// This is a thin wrapper around [`quinn::Connection`] using `Deref` to access any methods that are not overloaded.
 ///
 /// It is important to remember that WebTransport is layered on top of QUIC:
 ///   1. Each stream starts with a few bytes identifying the stream type and session ID.
@@ -107,6 +107,7 @@ impl Session {
         }
     }
 
+    /// Accept a new bidirectional stream. See [`quinn::Connection::accept_bi`].
     pub async fn accept_bi(
         &self,
     ) -> Result<(quinn::SendStream, quinn::RecvStream), quinn::ReadExactError> {

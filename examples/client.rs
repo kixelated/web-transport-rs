@@ -29,16 +29,10 @@ async fn main() -> anyhow::Result<()> {
         .try_into()
         .context("failed to parse uri")?;
 
-    // Use a helper method to convert URI to host/port.
-    let conn = webtransport_quinn::dial(&client, &uri).await?;
     log::info!("connecting to {}", uri);
 
-    let conn = conn.await?;
-    log::info!("established QUIC connection");
-
-    // Perform the WebTransport handshake.
-    let session = webtransport_quinn::connect(conn, &uri).await?;
-    log::info!("established WebTransport session");
+    // Connect to the given URI.
+    let session = webtransport_quinn::connect(&client, &uri).await?;
 
     // Run the baton code.
     baton::run(session, None, batons).await?;

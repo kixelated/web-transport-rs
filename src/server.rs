@@ -30,7 +30,7 @@ pub enum AcceptError {
 }
 
 /// Accept a new WebTransport session from a client.
-/// This returns a `Request` struct which is then used to accept or reject the session based on the URI.
+/// Returns a [`Request`] which is then used to accept or reject the session based on the URI.
 pub async fn accept(conn: quinn::Connection) -> Result<Request, AcceptError> {
     // Perform the H3 handshake by sending/reciving SETTINGS frames.
     let control = h3::settings(&conn).await?;
