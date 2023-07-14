@@ -1,14 +1,11 @@
-use quinn_proto::{coding::Codec, VarInt};
-
-use quinn::{RecvStream, SendStream};
-type BidiStream = (SendStream, RecvStream);
-
 use std::{
     ops::{Deref, DerefMut},
     sync::Arc,
 };
 
-use super::h3;
+use crate::{Connect, Settings};
+
+use webtransport_proto::{Frame, StreamUni, VarInt};
 
 /// An established WebTransport session, acting like a full QUIC connection.
 /// This is a thin wrapper around [`quinn::Connection`] using `Deref` to access any methods that are not overloaded.
@@ -24,12 +21,12 @@ pub struct Session {
     conn: quinn::Connection,
     session_id: VarInt,
 
-    // Keep a reference to the control and connect stream to avoid closing them.
+    // Keep a reference to the settings and connect stream to avoid closing them.
     // We use Arc so the session can be cloned.
     #[allow(dead_code)]
-    control: Arc<BidiStream>,
+    settings: Arc<Settings>,
     #[allow(dead_code)]
-    connect: Arc<BidiStream>,
+    connect: Arc<Connect>,
 
     // Cache the headers in front of each stream we open.
     header_uni: Vec<u8>,
@@ -37,22 +34,22 @@ pub struct Session {
 }
 
 impl Session {
-    pub(crate) fn new(conn: quinn::Connection, control: BidiStream, connect: BidiStream) -> Self {
-        // Cache some encoded values for better performance.
-        let session_id = VarInt::from(connect.0.id());
+    pub(crate) fn new(conn: quinn::Connection, settings: Settings, connect: Connect) -> Self {
+        // The session ID is the stream ID of the CONNECT request.
+        let session_id = connect.session_id();
 
         // Cache the tiny header we write in front of each stream we open.
         let mut header_uni = Vec::new();
-        h3::StreamUni::WEBTRANSPORT.encode(&mut header_uni);
+        StreamUni::WEBTRANSPORT.encode(&mut header_uni);
         session_id.encode(&mut header_uni);
 
         let mut header_bi = Vec::new();
-        h3::Frame::WEBTRANSPORT.encode(&mut header_bi);
+        Frame::WEBTRANSPORT.encode(&mut header_bi);
         session_id.encode(&mut header_bi);
 
         Self {
             conn,
-            control: Arc::new(control),
+            settings: Arc::new(settings),
             connect: Arc::new(connect),
 
             session_id,
@@ -86,13 +83,13 @@ impl Session {
                 .await
                 .map_err(quinn::ReadError::ConnectionLost)?;
 
-            let typ = h3::StreamUni(read_varint(&mut recv).await?);
+            let typ = StreamUni(read_varint(&mut recv).await?);
             if typ.is_reserved() {
                 // HTTP/3 reserved streams are ignored.
                 continue;
             }
 
-            if typ != h3::StreamUni::WEBTRANSPORT {
+            if typ != StreamUni::WEBTRANSPORT {
                 // TODO just keep looping.
                 return Err(quinn::ReadError::UnknownStream.into());
             }
@@ -117,8 +114,8 @@ impl Session {
             .await
             .map_err(quinn::ReadError::ConnectionLost)?;
 
-        let typ = h3::Frame(read_varint(&mut recv).await?);
-        if typ != h3::Frame::WEBTRANSPORT {
+        let typ = Frame(read_varint(&mut recv).await?);
+        if typ != Frame::WEBTRANSPORT {
             return Err(quinn::ReadError::UnknownStream.into());
         }
 

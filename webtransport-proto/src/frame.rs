@@ -1,13 +1,12 @@
 use bytes::{Buf, BufMut};
 
-use quinn_proto::coding::{self, Codec};
-use quinn_proto::VarInt;
+use crate::{VarInt, VarIntUnexpectedEnd};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Frame(pub VarInt);
 
 impl Frame {
-    pub fn decode<B: Buf>(buf: &mut B) -> Result<Self, coding::UnexpectedEnd> {
+    pub fn decode<B: Buf>(buf: &mut B) -> Result<Self, VarIntUnexpectedEnd> {
         Ok(Frame(VarInt::decode(buf)?))
     }
 

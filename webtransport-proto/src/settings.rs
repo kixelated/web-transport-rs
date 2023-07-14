@@ -1,104 +1,19 @@
 use std::{
     collections::HashMap,
-    io,
     ops::{Deref, DerefMut},
 };
 
 use bytes::{Buf, BufMut};
 
-use futures::try_join;
 use thiserror::Error;
 
-use quinn::{RecvStream, SendStream};
-type BidiStream = (SendStream, RecvStream);
-
-use quinn_proto::coding::{self, Codec};
-use quinn_proto::VarInt;
-
-use super::{Frame, StreamUni};
-
-#[derive(Error, Debug)]
-pub enum SettingsError {
-    #[error("unexpected end of input")]
-    UnexpectedEnd(#[from] coding::UnexpectedEnd),
-
-    #[error("connection error")]
-    Connection(#[from] quinn::ConnectionError),
-
-    #[error("failed to write")]
-    WriteError(#[from] quinn::WriteError),
-
-    #[error("failed to read")]
-    ReadError(#[from] quinn::ReadError),
-
-    #[error("unexpected stream type {0:?}")]
-    UnexpectedStreamType(StreamUni),
-
-    #[error("unexpected frame {0:?}")]
-    UnexpectedFrame(Frame),
-
-    #[error("invalid size")]
-    InvalidSize,
-
-    #[error("webtransport unsupported")]
-    WebTransportUnsupported,
-}
-
-// Establish the H3 connection.
-pub async fn settings(conn: &quinn::Connection) -> Result<BidiStream, SettingsError> {
-    let recv = read_settings(conn);
-    let send = write_settings(conn);
-
-    // Run both tasks concurrently until one errors or they both complete.
-    let control = try_join!(send, recv)?;
-    Ok(control)
-}
-
-async fn read_settings(conn: &quinn::Connection) -> Result<quinn::RecvStream, SettingsError> {
-    let mut recv = conn.accept_uni().await?;
-    let mut buf = Vec::new();
-
-    loop {
-        // Read more data into the buffer.
-        let chunk = recv.read_chunk(usize::MAX, true).await?;
-        let chunk = chunk.ok_or(SettingsError::UnexpectedEnd(coding::UnexpectedEnd))?;
-        buf.extend_from_slice(&chunk.bytes); // TODO avoid copying on the first loop.
-
-        // Look at the buffer we've already read.
-        let mut limit = io::Cursor::new(&buf);
-
-        let settings = match Settings::decode(&mut limit) {
-            Ok(settings) => settings,
-            Err(SettingsError::UnexpectedEnd(_)) => continue, // More data needed.
-            Err(e) => return Err(e),
-        };
-
-        if settings.supports_webtransport() == 0 {
-            return Err(SettingsError::WebTransportUnsupported);
-        }
-
-        return Ok(recv);
-    }
-}
-
-async fn write_settings(conn: &quinn::Connection) -> Result<quinn::SendStream, SettingsError> {
-    let mut settings = Settings::default();
-    settings.enable_webtransport(1);
-
-    let mut buf = Vec::new();
-    settings.encode(&mut buf);
-
-    let mut send = conn.open_uni().await?;
-    send.write_all(&buf).await?;
-
-    Ok(send)
-}
+use super::{Frame, StreamUni, VarInt, VarIntUnexpectedEnd};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Setting(pub VarInt);
 
 impl Setting {
-    pub fn decode<B: Buf>(buf: &mut B) -> Result<Self, coding::UnexpectedEnd> {
+    pub fn decode<B: Buf>(buf: &mut B) -> Result<Self, VarIntUnexpectedEnd> {
         Ok(Setting(VarInt::decode(buf)?))
     }
 
@@ -129,35 +44,49 @@ settings! {
     WEBTRANSPORT_MAX_SESSIONS = 0xc671706a,
 }
 
+#[derive(Error, Debug)]
+pub enum SettingsError {
+    #[error("unexpected end of input")]
+    UnexpectedEnd,
+
+    #[error("unexpected stream type {0:?}")]
+    UnexpectedStreamType(StreamUni),
+
+    #[error("unexpected frame {0:?}")]
+    UnexpectedFrame(Frame),
+
+    #[error("invalid size")]
+    InvalidSize,
+}
+
 // A map of settings to values.
 #[derive(Default, Debug)]
 pub struct Settings(HashMap<Setting, VarInt>);
 
 impl Settings {
     pub fn decode<B: Buf>(buf: &mut B) -> Result<Self, SettingsError> {
-        let typ = StreamUni::decode(buf)?;
+        let typ = StreamUni::decode(buf).map_err(|_| SettingsError::UnexpectedEnd)?;
         if typ != StreamUni::CONTROL {
             return Err(SettingsError::UnexpectedStreamType(typ));
         }
 
-        let typ = Frame::decode(buf)?;
+        let typ = Frame::decode(buf).map_err(|_| SettingsError::UnexpectedEnd)?;
         if typ != Frame::SETTINGS {
             return Err(SettingsError::UnexpectedFrame(typ));
         }
 
-        let size = VarInt::decode(buf)?;
+        let size = VarInt::decode(buf).map_err(|_| SettingsError::UnexpectedEnd)?;
 
         let mut limit = bytes::Buf::take(buf, size.into_inner() as usize);
         if limit.remaining() < limit.limit() {
-            return Err(SettingsError::UnexpectedEnd(coding::UnexpectedEnd));
+            return Err(SettingsError::UnexpectedEnd);
         }
 
         let mut settings = Settings::default();
         while limit.has_remaining() {
-            let id = Setting::decode(&mut limit)
-                .map_err(|coding::UnexpectedEnd| SettingsError::InvalidSize)?;
-            let value = VarInt::decode(&mut limit)
-                .map_err(|coding::UnexpectedEnd| SettingsError::InvalidSize)?;
+            // These return a different error because retrying won't help.
+            let id = Setting::decode(&mut limit).map_err(|_| SettingsError::InvalidSize)?;
+            let value = VarInt::decode(&mut limit).map_err(|_| SettingsError::InvalidSize)?;
             settings.0.insert(id, value);
         }
 

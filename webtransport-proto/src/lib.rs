@@ -10,5 +10,8 @@ pub use frame::*;
 mod connect;
 pub use connect::*;
 
+mod varint;
+pub use varint::*;
+
 mod huffman;
 mod qpack;

@@ -1273,15 +1273,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "webtransport-proto"
-version = "0.2.1"
-dependencies = [
- "bytes",
- "http",
- "thiserror",
-]
-
-[[package]]
 name = "webtransport-quinn"
 version = "0.2.1"
 dependencies = [
@@ -1299,7 +1290,6 @@ dependencies = [
  "rustls",
  "thiserror",
  "tokio",
- "webtransport-proto",
 ]
 
 [[package]]

@@ -2,10 +2,7 @@ use std::str::FromStr;
 
 use bytes::{Buf, BufMut};
 
-use quinn_proto::coding::{self, Codec};
-use quinn_proto::VarInt;
-
-use super::{qpack, Frame};
+use super::{qpack, Frame, VarInt};
 
 use thiserror::Error;
 
@@ -13,7 +10,7 @@ use thiserror::Error;
 #[derive(Error, Debug)]
 pub enum ConnectError {
     #[error("unexpected end of input")]
-    UnexpectedEnd(#[from] coding::UnexpectedEnd),
+    UnexpectedEnd,
 
     #[error("qpack error")]
     QpackError(#[from] qpack::DecodeError),
@@ -59,17 +56,19 @@ pub struct ConnectRequest {
 
 impl ConnectRequest {
     pub fn decode<B: Buf>(buf: &mut B) -> Result<Self, ConnectError> {
-        let typ = Frame::decode(buf)?;
+        let typ = Frame::decode(buf).map_err(|_| ConnectError::UnexpectedEnd)?;
         if typ != Frame::HEADERS {
             return Err(ConnectError::UnexpectedFrame(typ));
         }
 
-        let size = VarInt::decode(buf)?;
+        let size = VarInt::decode(buf).map_err(|_| ConnectError::UnexpectedEnd)?;
         let mut limit = Buf::take(buf, size.into_inner() as usize);
         if limit.limit() > limit.remaining() {
             // Not enough data in the buffer
-            return Err(ConnectError::UnexpectedEnd(coding::UnexpectedEnd));
+            return Err(ConnectError::UnexpectedEnd);
         }
+
+        // We no longer return UnexpectedEnd because we know the buffer should be large enough.
 
         let headers = qpack::Headers::decode(&mut limit)?;
 
@@ -147,16 +146,16 @@ pub struct ConnectResponse {
 
 impl ConnectResponse {
     pub fn decode<B: Buf>(buf: &mut B) -> Result<Self, ConnectError> {
-        let typ = Frame::decode(buf)?;
+        let typ = Frame::decode(buf).map_err(|_| ConnectError::UnexpectedEnd)?;
         if typ != Frame::HEADERS {
             return Err(ConnectError::UnexpectedFrame(typ));
         }
 
-        let size = VarInt::decode(buf)?;
+        let size = VarInt::decode(buf).map_err(|_| ConnectError::UnexpectedEnd)?;
 
         let mut limit = Buf::take(buf, size.into_inner() as usize);
         if limit.limit() > limit.remaining() {
-            return Err(ConnectError::UnexpectedEnd(coding::UnexpectedEnd));
+            return Err(ConnectError::UnexpectedEnd);
         }
 
         let headers = qpack::Headers::decode(&mut limit)?;

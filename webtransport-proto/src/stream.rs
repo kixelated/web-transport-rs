@@ -1,14 +1,13 @@
 use bytes::{Buf, BufMut};
 
-use quinn_proto::coding::{self, Codec};
-use quinn_proto::VarInt;
+use super::{VarInt, VarIntUnexpectedEnd};
 
 // Sent as the first bytes of a unidirectional stream to identify the type.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct StreamUni(pub VarInt);
 
 impl StreamUni {
-    pub fn decode<B: Buf>(buf: &mut B) -> Result<Self, coding::UnexpectedEnd> {
+    pub fn decode<B: Buf>(buf: &mut B) -> Result<Self, VarIntUnexpectedEnd> {
         Ok(StreamUni(VarInt::decode(buf)?))
     }
 

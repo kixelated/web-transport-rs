@@ -1,10 +1,14 @@
+[![Documentation](https://docs.rs/webtransport-quinn/badge.svg)](https://docs.rs/webtransport-quinn/)
+[![Crates.io](https://img.shields.io/crates/v/webtransport-quinn.svg)](https://crates.io/crates/webtransport-quinn)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE-MIT)
+
 # Webtransport
 
 WebTransport is a protocol for client-server communication over QUIC.
 It's [available in the browser](https://caniuse.com/webtransport) as an alternative to HTTP and WebSockets.
 
 WebTransport is layered on top of HTTP/3 which is then layered on top of QUIC.
-This library hides that detail and tries to expose only the QUIC API, delegating as much as possible to the underlying QUIC implementation.
+This library hides that detail and tries to expose only the QUIC API, delegating as much as possible to the [Quinn API](https://docs.rs/quinn/latest/quinn/).
 
 QUIC provides two primary APIs:
 
