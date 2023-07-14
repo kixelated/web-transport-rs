@@ -1,3 +1,7 @@
+[![Documentation](https://docs.rs/webtransport-quinn/badge.svg)](https://docs.rs/webtransport-quinn/)
+[![Crates.io](https://img.shields.io/crates/v/webtransport-quinn.svg)](https://crates.io/crates/webtransport-quinn)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE-MIT)
+
 # Webtransport
 
 WebTransport is a protocol for client-server communication over QUIC.
