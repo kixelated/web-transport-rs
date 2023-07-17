@@ -14,7 +14,7 @@ pub trait Session {
     /// The type produced by `poll_accept_uni()`
     type RecvStream: RecvStream;
     /// Error type yielded by this trait's methods
-    type Error: Into<Box<dyn SessionError>>;
+    type Error: SessionError;
 
     /// Accept an incoming unidirectional stream
     fn poll_accept_uni(
@@ -79,7 +79,7 @@ pub trait Session {
 }
 
 /// Trait that represent an error from the transport layer
-pub trait SessionError: Error {
+pub trait SessionError: Error + Send + Sync + 'static {
     /// Get the QUIC error code from CONNECTION_CLOSE
     fn session_error(&self) -> Option<u32>;
 }
@@ -93,7 +93,7 @@ impl<'a, E: SessionError + 'a> From<E> for Box<dyn SessionError + 'a> {
 /// A trait describing the "send" actions of a QUIC stream.
 pub trait SendStream {
     /// The error type returned by fallible send methods.
-    type Error: Into<Box<dyn StreamError>>;
+    type Error: StreamError;
 
     /// Attempts to write data into the stream, returns the number of bytes written.
     fn poll_send<B: Buf>(
@@ -132,7 +132,7 @@ pub trait SendStream {
 /// A trait describing the "receive" actions of a QUIC stream.
 pub trait RecvStream {
     /// The error type that can occur when receiving data.
-    type Error: Into<Box<dyn StreamError>>;
+    type Error: StreamError;
 
     /// Poll the stream for more data.
     ///
@@ -157,7 +157,7 @@ pub trait RecvStream {
 }
 
 /// Trait that represent an error from the transport layer
-pub trait StreamError: SessionError {
+pub trait StreamError: SessionError + Send + Sync + 'static {
     /// Get the QUIC error code from RESET_STREAM
     fn stream_error(&self) -> Option<u32>;
 }
