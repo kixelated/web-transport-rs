@@ -1,5 +1,3 @@
-
-
 // WebTransport shares with HTTP/3, so we can't start at 0 or use the full VarInt.
 const ERROR_FIRST: u64 = 0x52e4a40fa8db;
 const ERROR_LAST: u64 = 0x52e5ac983162;
