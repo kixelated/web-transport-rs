@@ -14,8 +14,8 @@ categories = ["network-programming", "web-programming"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+quinn = { version = "0.10", features = ["futures-io"] }
 bytes = "1"
-quinn = "0.10"
 quinn-proto = "0.10"
 http = "0.2"
 thiserror = "1"

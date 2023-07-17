@@ -700,6 +700,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "21252f1c0fc131f1b69182db8f34837e8a69737b8251dff75636a9be0518c324"
 dependencies = [
  "bytes",
+ "futures-io",
  "pin-project-lite",
  "quinn-proto",
  "quinn-udp",

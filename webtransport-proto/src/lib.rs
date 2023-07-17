@@ -1,16 +1,15 @@
-mod settings;
-pub use settings::*;
-
-mod stream;
-pub use stream::*;
-
-mod frame;
-pub use frame::*;
-
 mod connect;
-pub use connect::*;
-
+mod error;
+mod frame;
+mod settings;
+mod stream;
 mod varint;
+
+pub use connect::*;
+pub use error::*;
+pub use frame::*;
+pub use settings::*;
+pub use stream::*;
 pub use varint::*;
 
 mod huffman;

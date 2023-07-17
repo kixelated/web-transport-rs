@@ -1,11 +1,13 @@
 use std::{
     ops::{Deref, DerefMut},
+    pin::pin,
     sync::Arc,
+    task::{Context, Poll},
 };
 
-use thiserror::Error;
+use futures::Future;
 
-use crate::{Connect, RecvStream, SendStream, Settings};
+use crate::{Connect, RecvStream, SendStream, SessionError, Settings, WebTransportError};
 
 use webtransport_proto::{Frame, StreamUni, VarInt};
 
@@ -33,21 +35,6 @@ pub struct Session {
     // Cache the headers in front of each stream we open.
     header_uni: Vec<u8>,
     header_bi: Vec<u8>,
-}
-
-#[derive(Error, Debug)]
-pub enum SessionError {
-    #[error("connection error")]
-    ConnectionError(#[from] quinn::ConnectionError),
-
-    #[error("write error")]
-    WriteError(#[from] quinn::WriteError),
-
-    #[error("read error")]
-    ReadError(#[from] quinn::ReadError),
-
-    #[error("unexpected end of stream")]
-    UnexpectedEnd,
 }
 
 impl Session {
@@ -78,14 +65,14 @@ impl Session {
     /// Open a new unidirectional stream. See [`quinn::Connection::open_uni`].
     pub async fn open_uni(&self) -> Result<SendStream, SessionError> {
         let mut send = self.conn.open_uni().await?;
-        send.write_all(&self.header_uni).await?;
+        Self::write(&mut send, &self.header_uni).await?;
         Ok(SendStream::new(send))
     }
 
     /// Open a new bidirectional stream. See [`quinn::Connection::open_bi`].
     pub async fn open_bi(&self) -> Result<(SendStream, RecvStream), SessionError> {
         let (mut send, recv) = self.conn.open_bi().await?;
-        send.write_all(&self.header_bi).await?;
+        Self::write(&mut send, &self.header_bi).await?;
         Ok((SendStream::new(send), RecvStream::new(recv)))
     }
 
@@ -94,21 +81,23 @@ impl Session {
         loop {
             let mut recv = self.conn.accept_uni().await?;
 
-            let typ = StreamUni(read_varint(&mut recv).await?);
+            let typ = Self::read_varint(&mut recv).await?;
+            let typ = StreamUni(typ);
             if typ.is_reserved() {
                 // HTTP/3 reserved streams are ignored.
                 continue;
             }
 
             if typ != StreamUni::WEBTRANSPORT {
-                // TODO just keep looping.
-                return Err(quinn::ReadError::UnknownStream.into());
+                // Who knows what this stream is for, keep looping.
+                continue;
             }
 
-            let session_id = read_varint(&mut recv).await?;
+            let session_id = Self::read_varint(&mut recv).await?;
             if session_id != self.session_id {
-                // TODO return a better error message: unknown session
-                return Err(quinn::ReadError::UnknownStream.into());
+                let reason = format!("wrong session ID: {}", session_id);
+                self.close(0x1, reason.as_bytes());
+                return Err(self.closed().await.into());
             }
 
             return Ok(RecvStream::new(recv));
@@ -117,20 +106,23 @@ impl Session {
 
     /// Accept a new bidirectional stream. See [`quinn::Connection::accept_bi`].
     pub async fn accept_bi(&self) -> Result<(SendStream, RecvStream), SessionError> {
-        let (send, mut recv) = self.conn.accept_bi().await?;
+        loop {
+            let (send, mut recv) = self.conn.accept_bi().await?;
 
-        let typ = Frame(read_varint(&mut recv).await?);
-        if typ != Frame::WEBTRANSPORT {
-            return Err(quinn::ReadError::UnknownStream.into());
+            let typ = Self::read_varint(&mut recv).await?;
+            match Frame(typ) {
+                Frame::WEBTRANSPORT => (),
+                Frame::HEADERS => (), // TODO write a 4xx error
+                _ => continue,        // TODO write a 4xx error
+            };
+
+            let session_id = Self::read_varint(&mut recv).await?;
+            if session_id != self.session_id {
+                return Err(WebTransportError::UnknownSession.into());
+            }
+
+            return Ok((SendStream::new(send), RecvStream::new(recv)));
         }
-
-        let session_id = read_varint(&mut recv).await?;
-        if session_id != self.session_id {
-            // TODO return a better error message: unknown session
-            return Err(quinn::ReadError::UnknownStream.into());
-        }
-
-        Ok((SendStream::new(send), RecvStream::new(recv)))
     }
 
     pub async fn read_datagram(&self) {
@@ -145,12 +137,54 @@ impl Session {
         unimplemented!("datagrams")
     }
 
-    pub fn close(&self) {
+    pub fn close(&self, _error_code: u32, _reason: &[u8]) {
         unimplemented!("close")
     }
 
-    pub fn close_reason(&self) {
-        unimplemented!("close")
+    pub async fn closed() -> SessionError {
+        unimplemented!("closed")
+    }
+
+    pub async fn close_reason() -> Option<SessionError> {
+        unimplemented!("close_reason")
+    }
+
+    // Fully read into the buffer and cast any errors
+    async fn read(recv: &mut quinn::RecvStream, buf: &mut [u8]) -> Result<(), SessionError> {
+        match recv.read_exact(buf).await {
+            Ok(()) => Ok(()),
+            Err(quinn::ReadExactError::ReadError(quinn::ReadError::ConnectionLost(err))) => {
+                Err(err.into())
+            }
+            Err(err) => Err(WebTransportError::ReadError(err).into()),
+        }
+    }
+
+    // Read a varint from the stream.
+    async fn read_varint(recv: &mut quinn::RecvStream) -> Result<VarInt, SessionError> {
+        // 8 bytes is the max size of a varint
+        let mut buf = [0; 8];
+
+        // Read the first byte because it includes the length.
+        Self::read(recv, &mut buf[0..1]).await?;
+
+        // 0b00 = 1, 0b01 = 2, 0b10 = 4, 0b11 = 8
+        let size = 1 << (buf[0] >> 6);
+        Self::read(recv, &mut buf[1..size]).await?;
+
+        // Use a cursor to read the varint on the stack.
+        let mut cursor = std::io::Cursor::new(&buf[..size]);
+        let v = VarInt::decode(&mut cursor).unwrap();
+
+        Ok(v)
+    }
+
+    async fn write(send: &mut quinn::SendStream, buf: &[u8]) -> Result<(), SessionError> {
+        match send.write_all(buf).await {
+            Ok(_) => Ok(()),
+            Err(quinn::WriteError::ConnectionLost(err)) => Err(err.into()),
+            Err(err) => Err(WebTransportError::WriteError(err).into()),
+        }
     }
 }
 
@@ -168,29 +202,49 @@ impl DerefMut for Session {
     }
 }
 
-// Read a varint from the stream.
-async fn read_varint(stream: &mut quinn::RecvStream) -> Result<VarInt, SessionError> {
-    // 8 bytes is the max size of a varint
-    let mut buf = [0; 8];
+impl webtransport_generic::Session for Session {
+    type SendStream = SendStream;
+    type RecvStream = RecvStream;
+    type Error = SessionError;
 
-    // Read the first byte because it includes the length.
-    match stream.read_exact(&mut buf[0..1]).await {
-        Ok(()) => (),
-        Err(quinn::ReadExactError::FinishedEarly) => return Err(SessionError::UnexpectedEnd),
-        Err(quinn::ReadExactError::ReadError(e)) => return Err(e.into()),
-    };
+    /// Accept an incoming unidirectional stream
+    ///
+    /// Returning `None` implies the connection is closing or closed.
+    fn poll_accept_uni(
+        &mut self,
+        cx: &mut Context<'_>,
+    ) -> Poll<Result<Self::RecvStream, Self::Error>> {
+        pin!(self.accept_uni()).poll(cx)
+    }
 
-    // 0b00 = 1, 0b01 = 2, 0b10 = 4, 0b11 = 8
-    let size = 1 << (buf[0] >> 6);
-    match stream.read_exact(&mut buf[1..size]).await {
-        Ok(()) => (),
-        Err(quinn::ReadExactError::FinishedEarly) => return Err(SessionError::UnexpectedEnd),
-        Err(quinn::ReadExactError::ReadError(e)) => return Err(e.into()),
-    };
+    /// Accept an incoming bidirectional stream
+    ///
+    /// Returning `None` implies the connection is closing or closed.
+    fn poll_accept_bidi(
+        &mut self,
+        cx: &mut Context<'_>,
+    ) -> Poll<Result<(Self::SendStream, Self::RecvStream), Self::Error>> {
+        pin!(self.accept_bi()).poll(cx)
+    }
 
-    // Use a cursor to read the varint on the stack.
-    let mut cursor = std::io::Cursor::new(&buf[..size]);
-    let v = VarInt::decode(&mut cursor).unwrap();
+    /// Poll the connection to create a new bidirectional stream.
+    fn poll_open_bidi(
+        &mut self,
+        cx: &mut Context<'_>,
+    ) -> Poll<Result<(Self::SendStream, Self::RecvStream), Self::Error>> {
+        pin!(self.open_bi()).poll(cx)
+    }
 
-    Ok(v)
+    /// Poll the connection to create a new unidirectional stream.
+    fn poll_open_uni(
+        &mut self,
+        cx: &mut Context<'_>,
+    ) -> Poll<Result<Self::SendStream, Self::Error>> {
+        pin!(self.open_uni()).poll(cx)
+    }
+
+    /// Close the connection immediately
+    fn close(&mut self, code: u32, reason: &[u8]) {
+        Session::close(self, code, reason)
+    }
 }

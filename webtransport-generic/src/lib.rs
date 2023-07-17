@@ -5,10 +5,8 @@ use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
-type ErrorCode = u32; // NOTE: smaller than QUIC
-
-/// Trait representing a QUIC connection.
-pub trait Connection {
+/// Trait representing a WebTransport session
+pub trait Session {
     /// The type produced by `poll_accept_bidi()`
     //type BidiStream: BidiStream;
     /// The type of the sending part of `BidiStream`
@@ -16,7 +14,7 @@ pub trait Connection {
     /// The type produced by `poll_accept_uni()`
     type RecvStream: RecvStream;
     /// Error type yielded by this trait's methods
-    type Error: Into<Box<dyn ConnectionError>>;
+    type Error: Into<Box<dyn SessionError>>;
 
     /// Accept an incoming unidirectional stream
     fn poll_accept_uni(
@@ -77,17 +75,17 @@ pub trait Connection {
     }
 
     /// Close the connection immediately
-    fn close(&mut self, code: ErrorCode, reason: &[u8]);
+    fn close(&mut self, code: u32, reason: &[u8]);
 }
 
 /// Trait that represent an error from the transport layer
-pub trait ConnectionError: Error + Send + Sync {
+pub trait SessionError: Error {
     /// Get the QUIC error code from CONNECTION_CLOSE
-    fn err_code(&self) -> Option<ErrorCode>;
+    fn session_error(&self) -> Option<u32>;
 }
 
-impl<'a, E: ConnectionError + 'a> From<E> for Box<dyn ConnectionError + 'a> {
-    fn from(err: E) -> Box<dyn ConnectionError + 'a> {
+impl<'a, E: SessionError + 'a> From<E> for Box<dyn SessionError + 'a> {
+    fn from(err: E) -> Box<dyn SessionError + 'a> {
         Box::new(err)
     }
 }
@@ -124,7 +122,7 @@ pub trait SendStream {
     }
 
     /// Send a QUIC reset code.
-    fn reset(&mut self, reset_code: ErrorCode);
+    fn reset(&mut self, reset_code: u32);
 
     /// Set the stream's priority relative to other streams on the same connection.
     /// A lower value will be sent first and zero is the default value.
@@ -133,20 +131,18 @@ pub trait SendStream {
 
 /// A trait describing the "receive" actions of a QUIC stream.
 pub trait RecvStream {
-    /// The type of `Buf` for data received on this stream.
-    type Buf: Buf + Send;
     /// The error type that can occur when receiving data.
     type Error: Into<Box<dyn StreamError>>;
 
     /// Poll the stream for more data.
     ///
     /// When the receive side will no longer receive more data (such as because
-    /// the peer closed their sending side), this will return 0.
+    /// the peer closed their sending side), this will return None.
     fn poll_recv<B: BufMut>(
         &mut self,
         cx: &mut Context<'_>,
-        buf: B,
-    ) -> Poll<Result<usize, Self::Error>>;
+        buf: &mut B,
+    ) -> Poll<Result<Option<usize>, Self::Error>>;
 
     /// Return a future that resolves when the next chunk of data is received.
     fn recv<'a, B: BufMut>(&'a mut self, buf: &'a mut B) -> Recv<'a, Self, B>
@@ -157,13 +153,13 @@ pub trait RecvStream {
     }
 
     /// Send a `STOP_SENDING` QUIC code.
-    fn stop_sending(&mut self, error_code: ErrorCode);
+    fn stop(&mut self, error_code: u32);
 }
 
 /// Trait that represent an error from the transport layer
-pub trait StreamError: Error + Send + Sync {
+pub trait StreamError: SessionError {
     /// Get the QUIC error code from RESET_STREAM
-    fn err_code(&self) -> Option<ErrorCode>;
+    fn stream_error(&self) -> Option<u32>;
 }
 
 impl<'a, E: StreamError + 'a> From<E> for Box<dyn StreamError + 'a> {
@@ -180,7 +176,7 @@ pub struct AcceptUni<'a, T: ?Sized> {
 
 impl<T: ?Sized + Unpin> Unpin for AcceptUni<'_, T> {}
 
-impl<'a, T: Connection + ?Sized + Unpin> AcceptUni<'a, T> {
+impl<'a, T: Session + ?Sized + Unpin> AcceptUni<'a, T> {
     pub(crate) fn new(conn: &'a mut T) -> Self {
         Self { conn }
     }
@@ -188,7 +184,7 @@ impl<'a, T: Connection + ?Sized + Unpin> AcceptUni<'a, T> {
 
 impl<'a, T> Future for AcceptUni<'a, T>
 where
-    T: Connection + Unpin + ?Sized,
+    T: Session + Unpin + ?Sized,
 {
     type Output = Result<T::RecvStream, T::Error>;
 
@@ -204,7 +200,7 @@ pub struct AcceptBidi<'a, T: ?Sized> {
 
 impl<T: ?Sized + Unpin> Unpin for AcceptBidi<'_, T> {}
 
-impl<'a, T: Connection + ?Sized + Unpin> AcceptBidi<'a, T> {
+impl<'a, T: Session + ?Sized + Unpin> AcceptBidi<'a, T> {
     pub(crate) fn new(conn: &'a mut T) -> Self {
         Self { conn }
     }
@@ -212,7 +208,7 @@ impl<'a, T: Connection + ?Sized + Unpin> AcceptBidi<'a, T> {
 
 impl<'a, T> Future for AcceptBidi<'a, T>
 where
-    T: Connection + Unpin + ?Sized,
+    T: Session + Unpin + ?Sized,
 {
     type Output = Result<(T::SendStream, T::RecvStream), T::Error>;
 
@@ -228,7 +224,7 @@ pub struct OpenUni<'a, T: ?Sized> {
 
 impl<T: ?Sized + Unpin> Unpin for OpenUni<'_, T> {}
 
-impl<'a, T: Connection + ?Sized + Unpin> OpenUni<'a, T> {
+impl<'a, T: Session + ?Sized + Unpin> OpenUni<'a, T> {
     pub(crate) fn new(conn: &'a mut T) -> Self {
         Self { conn }
     }
@@ -236,7 +232,7 @@ impl<'a, T: Connection + ?Sized + Unpin> OpenUni<'a, T> {
 
 impl<'a, T> Future for OpenUni<'a, T>
 where
-    T: Connection + Unpin + ?Sized,
+    T: Session + Unpin + ?Sized,
 {
     type Output = Result<T::SendStream, T::Error>;
 
@@ -252,7 +248,7 @@ pub struct OpenBidi<'a, T: ?Sized> {
 
 impl<T: ?Sized + Unpin> Unpin for OpenBidi<'_, T> {}
 
-impl<'a, T: Connection + ?Sized + Unpin> OpenBidi<'a, T> {
+impl<'a, T: Session + ?Sized + Unpin> OpenBidi<'a, T> {
     pub(crate) fn new(conn: &'a mut T) -> Self {
         Self { conn }
     }
@@ -260,7 +256,7 @@ impl<'a, T: Connection + ?Sized + Unpin> OpenBidi<'a, T> {
 
 impl<'a, T> Future for OpenBidi<'a, T>
 where
-    T: Connection + Unpin + ?Sized,
+    T: Session + Unpin + ?Sized,
 {
     type Output = Result<(T::SendStream, T::RecvStream), T::Error>;
 
@@ -348,7 +344,7 @@ where
     T: RecvStream + Unpin + ?Sized,
     B: BufMut,
 {
-    type Output = Result<usize, T::Error>;
+    type Output = Result<Option<usize>, T::Error>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = &mut *self;

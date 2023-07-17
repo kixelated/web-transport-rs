@@ -25,17 +25,16 @@
 
 // External
 mod client;
+mod error;
 mod server;
 mod session;
 mod stream;
 
 pub use client::*;
+pub use error::*;
 pub use server::*;
 pub use session::*;
 pub use stream::*;
-
-#[cfg(feature = "generic")]
-pub mod generic;
 
 // Internal
 mod connect;
