@@ -1,5 +1,3 @@
-use std::fmt;
-
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -35,84 +33,174 @@ impl webtransport_generic::SessionError for SessionError {
     }
 }
 
-#[derive(Debug)]
-pub struct SendError(pub quinn::WriteError);
+#[derive(Error, Debug)]
+pub enum WriteError {
+    #[error("STOP_SENDING: {0}")]
+    Stopped(u32),
 
-impl webtransport_generic::SessionError for SendError {
-    // Get the app error code from a CONNECTION_CLOSE
-    fn session_error(&self) -> Option<u32> {
-        match &self.0 {
-            quinn::WriteError::ConnectionLost(quinn::ConnectionError::ApplicationClosed(app)) => {
-                webtransport_proto::error_from_http3(app.error_code.into_inner())
-            }
-            _ => None,
-        }
-    }
+    #[error("invalid STOP_SENDING: {0}")]
+    InvalidStopped(quinn::VarInt),
+
+    #[error("session error: {0}")]
+    SessionError(#[from] SessionError),
+
+    #[error("stream closed")]
+    Closed,
 }
 
-impl webtransport_generic::StreamError for SendError {
-    /// Get the QUIC error code from STOP_SENDING
-    fn stream_error(&self) -> Option<u32> {
-        match self.0 {
+impl From<quinn::WriteError> for WriteError {
+    fn from(e: quinn::WriteError) -> Self {
+        match e {
             quinn::WriteError::Stopped(code) => {
-                webtransport_proto::error_from_http3(code.into_inner())
+                match webtransport_proto::error_from_http3(code.into_inner()) {
+                    Some(code) => WriteError::Stopped(code),
+                    None => WriteError::InvalidStopped(code),
+                }
             }
-            _ => None,
+            quinn::WriteError::UnknownStream => WriteError::Closed,
+            quinn::WriteError::ConnectionLost(e) => WriteError::SessionError(e.into()),
+            quinn::WriteError::ZeroRttRejected => unreachable!("0-RTT not supported"),
         }
     }
 }
 
-impl From<quinn::WriteError> for SendError {
-    fn from(err: quinn::WriteError) -> Self {
-        Self(err)
-    }
-}
-
-impl std::error::Error for SendError {}
-
-impl fmt::Display for SendError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.0.fmt(f)
-    }
-}
-
-#[derive(Debug)]
-pub struct RecvError(pub quinn::ReadError);
-
-impl webtransport_generic::SessionError for RecvError {
+impl webtransport_generic::SessionError for WriteError {
     // Get the app error code from a CONNECTION_CLOSE
     fn session_error(&self) -> Option<u32> {
-        match &self.0 {
-            quinn::ReadError::ConnectionLost(quinn::ConnectionError::ApplicationClosed(app)) => {
-                webtransport_proto::error_from_http3(app.error_code.into_inner())
-            }
+        match self {
+            WriteError::SessionError(e) => e.session_error(),
             _ => None,
         }
     }
 }
 
-impl webtransport_generic::StreamError for RecvError {
+impl webtransport_generic::StreamError for WriteError {
+    /// Get the error code from STOP_SENDING iff it's a valid WebTransport error
+    fn stream_error(&self) -> Option<u32> {
+        match self {
+            WriteError::Stopped(code) => Some(*code),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Error, Debug)]
+pub enum ReadError {
+    #[error("session error: {0}")]
+    SessionError(#[from] SessionError),
+
+    #[error("RESET_STREAM: {0}")]
+    Reset(u32),
+
+    #[error("invalid RESET_STREAM: {0}")]
+    InvalidReset(quinn::VarInt),
+
+    #[error("stream already closed")]
+    Closed,
+
+    #[error("ordered read on unordered stream")]
+    IllegalOrderedRead,
+}
+
+impl From<quinn::ReadError> for ReadError {
+    fn from(value: quinn::ReadError) -> Self {
+        match value {
+            quinn::ReadError::Reset(code) => {
+                match webtransport_proto::error_from_http3(code.into_inner()) {
+                    Some(code) => ReadError::Reset(code),
+                    None => ReadError::InvalidReset(code),
+                }
+            }
+            quinn::ReadError::ConnectionLost(e) => ReadError::SessionError(e.into()),
+            quinn::ReadError::IllegalOrderedRead => ReadError::IllegalOrderedRead,
+            quinn::ReadError::UnknownStream => ReadError::Closed,
+            quinn::ReadError::ZeroRttRejected => unreachable!("0-RTT not supported"),
+        }
+    }
+}
+
+impl webtransport_generic::SessionError for ReadError {
+    // Get the app error code from a CONNECTION_CLOSE
+    fn session_error(&self) -> Option<u32> {
+        match self {
+            ReadError::SessionError(e) => e.session_error(),
+            _ => None,
+        }
+    }
+}
+
+impl webtransport_generic::StreamError for ReadError {
     /// Get the QUIC error code from STOP_SENDING
     fn stream_error(&self) -> Option<u32> {
-        match self.0 {
-            quinn::ReadError::Reset(code) => {
-                webtransport_proto::error_from_http3(code.into_inner())
-            }
+        match self {
+            ReadError::Reset(code) => Some(*code),
             _ => None,
         }
     }
 }
 
-impl From<quinn::ReadError> for RecvError {
-    fn from(err: quinn::ReadError) -> Self {
-        Self(err)
+#[derive(Error, Debug)]
+pub enum ReadExactError {
+    #[error("finished early")]
+    FinishedEarly,
+
+    #[error("read error: {0}")]
+    ReadError(#[from] ReadError),
+}
+
+impl From<quinn::ReadExactError> for ReadExactError {
+    fn from(e: quinn::ReadExactError) -> Self {
+        match e {
+            quinn::ReadExactError::FinishedEarly => ReadExactError::FinishedEarly,
+            quinn::ReadExactError::ReadError(e) => ReadExactError::ReadError(e.into()),
+        }
     }
 }
 
-impl std::error::Error for RecvError {}
+#[derive(Error, Debug)]
+pub enum ReadToEndError {
+    #[error("too long")]
+    TooLong,
 
-impl fmt::Display for RecvError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.0.fmt(f)
+    #[error("read error: {0}")]
+    ReadError(#[from] ReadError),
+}
+
+impl From<quinn::ReadToEndError> for ReadToEndError {
+    fn from(e: quinn::ReadToEndError) -> Self {
+        match e {
+            quinn::ReadToEndError::TooLong => ReadToEndError::TooLong,
+            quinn::ReadToEndError::Read(e) => ReadToEndError::ReadError(e.into()),
+        }
+    }
+}
+
+// Just a slightly less confusing error message.
+#[derive(Error, Debug)]
+#[error("stream closed")]
+pub struct StreamClosed;
+
+impl From<quinn::UnknownStream> for StreamClosed {
+    fn from(_: quinn::UnknownStream) -> Self {
+        StreamClosed
+    }
+}
+
+#[derive(Error, Debug)]
+pub enum StoppedError {
+    #[error("session error: {0}")]
+    SessionError(#[from] SessionError),
+
+    #[error("stream already closed")]
+    Closed,
+}
+
+impl From<quinn::StoppedError> for StoppedError {
+    fn from(e: quinn::StoppedError) -> Self {
+        match e {
+            quinn::StoppedError::ConnectionLost(e) => StoppedError::SessionError(e.into()),
+            quinn::StoppedError::UnknownStream => StoppedError::Closed,
+            quinn::StoppedError::ZeroRttRejected => unreachable!("0-RTT not supported"),
+        }
     }
 }

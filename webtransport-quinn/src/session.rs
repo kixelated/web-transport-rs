@@ -95,9 +95,8 @@ impl Session {
 
             let session_id = Self::read_varint(&mut recv).await?;
             if session_id != self.session_id {
-                let reason = format!("wrong session ID: {}", session_id);
-                self.close(0x1, reason.as_bytes());
-                return Err(self.closed().await.into());
+                // Wrong session?
+                continue;
             }
 
             return Ok(RecvStream::new(recv));
@@ -137,16 +136,17 @@ impl Session {
         unimplemented!("datagrams")
     }
 
-    pub fn close(&self, _error_code: u32, _reason: &[u8]) {
-        unimplemented!("close")
+    pub fn close(&self, code: u32, reason: &[u8]) {
+        let code = webtransport_proto::error_to_http3(code).try_into().unwrap();
+        self.conn.close(code, reason)
     }
 
-    pub async fn closed() -> SessionError {
-        unimplemented!("closed")
+    pub async fn closed(&self) -> SessionError {
+        self.conn.closed().await.into()
     }
 
-    pub async fn close_reason() -> Option<SessionError> {
-        unimplemented!("close_reason")
+    pub async fn close_reason(&self) -> Option<SessionError> {
+        self.conn.close_reason().map(Into::into)
     }
 
     // Fully read into the buffer and cast any errors

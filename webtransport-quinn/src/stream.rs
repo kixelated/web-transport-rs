@@ -1,13 +1,12 @@
 use std::{
-    ops::{Deref, DerefMut},
     pin::pin,
     task::{ready, Context, Poll},
 };
 
-use bytes::{Buf, BufMut};
+use bytes::{Buf, BufMut, Bytes};
 use futures::Future;
 
-use crate::{RecvError, SendError};
+use crate::{ReadError, ReadExactError, ReadToEndError, StoppedError, StreamClosed, WriteError};
 
 pub struct SendStream {
     inner: quinn::SendStream,
@@ -18,36 +17,50 @@ impl SendStream {
         Self { inner: stream }
     }
 
-    // TODO need to overload any methods that return a WriteError to fix the error code...
-
     // Not a varint because we share the error space with HTTP/3.
-    pub fn reset(&mut self, code: u32) -> Result<(), quinn::UnknownStream> {
+    pub fn reset(&mut self, code: u32) -> Result<(), StreamClosed> {
         let code = webtransport_proto::error_to_http3(code);
         let code = quinn::VarInt::try_from(code).unwrap();
-        self.inner.reset(code)
+        self.inner.reset(code).map_err(Into::into)
     }
 
-    pub async fn stopped(&mut self) -> Result<u32, quinn::StoppedError> {
-        todo!("stopped");
+    // Returns None if the code is not a valid WebTransport error code.
+    pub async fn stopped(&mut self) -> Result<Option<u32>, StoppedError> {
+        let code = self.inner.stopped().await?;
+        Ok(webtransport_proto::error_from_http3(code.into_inner()))
     }
-}
 
-impl Deref for SendStream {
-    type Target = quinn::SendStream;
-
-    fn deref(&self) -> &Self::Target {
-        &self.inner
+    // Unfortunately, we have to wrap WriteError for a bunch of functions.
+    pub async fn write(&mut self, buf: &[u8]) -> Result<usize, WriteError> {
+        self.inner.write(buf).await.map_err(Into::into)
     }
-}
 
-impl DerefMut for SendStream {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.inner
+    pub async fn write_all(&mut self, buf: &[u8]) -> Result<(), WriteError> {
+        self.inner.write_all(buf).await.map_err(Into::into)
+    }
+
+    pub async fn write_chunks(
+        &mut self,
+        bufs: &mut [Bytes],
+    ) -> Result<quinn_proto::Written, WriteError> {
+        self.inner.write_chunks(bufs).await.map_err(Into::into)
+    }
+
+    pub async fn write_chunk(&mut self, buf: Bytes) -> Result<(), WriteError> {
+        self.inner.write_chunk(buf).await.map_err(Into::into)
+    }
+
+    pub async fn write_all_chunks(&mut self, bufs: &mut [Bytes]) -> Result<(), WriteError> {
+        self.inner.write_all_chunks(bufs).await.map_err(Into::into)
+    }
+
+    pub async fn finish(&mut self) -> Result<(), WriteError> {
+        self.inner.finish().await.map_err(Into::into)
     }
 }
 
 impl webtransport_generic::SendStream for SendStream {
-    type Error = SendError;
+    type Error = WriteError;
 
     fn poll_send<B: Buf>(
         &mut self,
@@ -91,26 +104,40 @@ impl RecvStream {
         self.inner.stop(code)
     }
 
-    // TODO need to overload any methods that implement ReadError to fix the error code...
-}
-
-impl Deref for RecvStream {
-    type Target = quinn::RecvStream;
-
-    fn deref(&self) -> &Self::Target {
-        &self.inner
+    // Unfortunately, we have to wrap ReadError for a bunch of functions.
+    pub async fn read(&mut self, buf: &mut [u8]) -> Result<Option<usize>, ReadError> {
+        self.inner.read(buf).await.map_err(Into::into)
     }
-}
 
-impl DerefMut for RecvStream {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.inner
+    pub async fn read_exact(&mut self, buf: &mut [u8]) -> Result<(), ReadExactError> {
+        self.inner.read_exact(buf).await.map_err(Into::into)
     }
+
+    pub async fn read_chunk(
+        &mut self,
+        max_length: usize,
+        ordered: bool,
+    ) -> Result<Option<quinn::Chunk>, ReadError> {
+        self.inner
+            .read_chunk(max_length, ordered)
+            .await
+            .map_err(Into::into)
+    }
+
+    pub async fn read_chunks(&mut self, bufs: &mut [Bytes]) -> Result<Option<usize>, ReadError> {
+        self.inner.read_chunks(bufs).await.map_err(Into::into)
+    }
+
+    pub async fn read_to_end(&mut self, size_limit: usize) -> Result<Vec<u8>, ReadToEndError> {
+        self.inner.read_to_end(size_limit).await.map_err(Into::into)
+    }
+
+    // We purposely don't expose the stream ID or 0RTT because it's not valid with WebTransport
 }
 
 impl webtransport_generic::RecvStream for RecvStream {
     /// The error type that can occur when receiving data.
-    type Error = RecvError;
+    type Error = ReadError;
 
     /// Poll the stream for more data.
     ///
@@ -131,7 +158,7 @@ impl webtransport_generic::RecvStream for RecvStream {
                 Ok(Some(size))
             }
             Ok(None) => Ok(None),
-            Err(e) => Err(e.into()),
+            Err(e) => Err(e),
         })
     }
 
