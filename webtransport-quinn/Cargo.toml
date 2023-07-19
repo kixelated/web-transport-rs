@@ -5,7 +5,7 @@ authors = ["Luke Curley"]
 repository = "https://github.com/kixelated/webtransport-rs"
 license = "MIT"
 
-version = "0.3.1"
+version = "0.3.2"
 edition = "2021"
 
 keywords = ["quic", "http3", "webtransport"]
@@ -21,7 +21,7 @@ http = "0.2"
 thiserror = "1"
 futures = "0.3"
 async-std = "1.11"
-webtransport-proto = { path = "../webtransport-proto", version = "0.3" }
+webtransport-proto = { path = "../webtransport-proto", version = "0.3.2" }
 webtransport-generic = { path = "../webtransport-generic", version = "0.3" }
 
 # This is just for AsyncRead/AsyncWrite and does NOT pull in anything else
