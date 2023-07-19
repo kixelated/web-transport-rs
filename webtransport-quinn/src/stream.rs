@@ -1,5 +1,6 @@
 use std::{
-    pin::pin,
+    io,
+    pin::{pin, Pin},
     task::{ready, Context, Poll},
 };
 
@@ -56,6 +57,24 @@ impl SendStream {
 
     pub async fn finish(&mut self) -> Result<(), WriteError> {
         self.inner.finish().await.map_err(Into::into)
+    }
+}
+
+impl tokio::io::AsyncWrite for SendStream {
+    fn poll_write(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &[u8],
+    ) -> Poll<io::Result<usize>> {
+        Pin::new(&mut self.inner).poll_write(cx, buf)
+    }
+
+    fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<io::Result<()>> {
+        Pin::new(&mut self.inner).poll_flush(cx)
+    }
+
+    fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<io::Result<()>> {
+        Pin::new(&mut self.inner).poll_shutdown(cx)
     }
 }
 
@@ -133,6 +152,16 @@ impl RecvStream {
     }
 
     // We purposely don't expose the stream ID or 0RTT because it's not valid with WebTransport
+}
+
+impl tokio::io::AsyncRead for RecvStream {
+    fn poll_read(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &mut tokio::io::ReadBuf,
+    ) -> Poll<io::Result<()>> {
+        Pin::new(&mut self.inner).poll_read(cx, buf)
+    }
 }
 
 impl webtransport_generic::RecvStream for RecvStream {

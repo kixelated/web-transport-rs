@@ -23,6 +23,9 @@ futures = "0.3"
 async-std = "1.11"
 webtransport-proto = { path = "../webtransport-proto", version = "0.3" }
 webtransport-generic = { path = "../webtransport-generic", version = "0.3" }
+
+# This is just for AsyncRead/AsyncWrite and does NOT pull in anything else
+tokio = "1.29"
 tokio-util = "0.7"
 
 [dev-dependencies]
