@@ -71,6 +71,14 @@ impl SendStream {
     pub async fn finish(&mut self) -> Result<(), WriteError> {
         self.inner.finish().await.map_err(Into::into)
     }
+
+    pub fn set_priority(&mut self, order: i32) -> Result<(), StreamClosed> {
+        self.inner.set_priority(order).map_err(Into::into)
+    }
+
+    pub fn priority(&self) -> Result<i32, StreamClosed> {
+        self.inner.priority().map_err(Into::into)
+    }
 }
 
 impl tokio::io::AsyncWrite for SendStream {
@@ -116,7 +124,7 @@ impl webtransport_generic::SendStream for SendStream {
     }
 
     fn set_priority(&mut self, order: i32) {
-        self.inner.set_priority(order).ok();
+        SendStream::set_priority(self, order).ok();
     }
 }
 
