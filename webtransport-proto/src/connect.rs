@@ -176,7 +176,7 @@ impl ConnectResponse {
         let mut headers = qpack::Headers::default();
         headers.set(":status", self.status.as_str());
         headers.set(":protocol", "webtransport");
-        headers.set(":sec-webtransport-http3-draft", "draft02");
+        headers.set("sec-webtransport-http3-draft", "draft02");
 
         // Use a temporary buffer so we can compute the size.
         let mut tmp = Vec::new();

@@ -31,6 +31,11 @@ macro_rules! settings {
 }
 
 settings! {
+    // These are for HTTP/3 and we can ignore them
+    QPACK_MAX_TABLE_CAPACITY = 0x1, // default is 0, which disables QPACK dynamic table
+    MAX_FIELD_SECTION_SIZE = 0x6,
+    QPACK_BLOCKED_STREAMS = 0x7,
+
     // Both of these are required for WebTransport
     ENABLE_CONNECT_PROTOCOL = 0x8,
     ENABLE_DATAGRAM = 0x33,
@@ -123,37 +128,45 @@ impl Settings {
 
     // Returns the maximum number of sessions supported.
     pub fn supports_webtransport(&self) -> u64 {
-        match self.get(&Setting::ENABLE_CONNECT_PROTOCOL) {
-            Some(v) if v.into_inner() == 1 => {}
-            _ => return 0,
-        };
+        // Sent by Chrome 114.0.5735.198 (July 19, 2023)
+        // Setting(1): 65536,              // qpack_max_table_capacity
+        // Setting(6): 16384,              // max_field_section_size
+        // Setting(7): 100,                // qpack_blocked_streams
+        // Setting(51): 1,                 // enable_datagram
+        // Setting(16765559): 1            // enable_datagram_deprecated
+        // Setting(727725890): 1,          // webtransport_max_sessions_deprecated
+        // Setting(4445614305): 454654587, // grease
 
-        match self
+        // NOTE: The presence of ENABLE_WEBTRANSPORT implies ENABLE_CONNECT is supported.
+
+        let datagram = self
             .get(&Setting::ENABLE_DATAGRAM)
             .or(self.get(&Setting::ENABLE_DATAGRAM_DEPRECATED))
-        {
-            Some(v) if v.into_inner() == 1 => {}
-            _ => return 0,
-        };
+            .map(|v| v.into_inner());
+
+        if datagram != Some(1) {
+            return 0;
+        }
 
         // The deprecated (before draft-07) way of enabling WebTransport was to send two parameters.
         // Both would send ENABLE=1 and the server would send MAX_SESSIONS=N to limit the sessions.
         // Now both just send MAX_SESSIONS, and a non-zero value means WebTransport is enabled.
 
-        match self.get(&Setting::WEBTRANSPORT_MAX_SESSIONS) {
-            Some(max) => max.into_inner(),
-
-            // Only the server is allowed to set this deprecated... but we don't care.
-            None => match self.get(&Setting::WEBTRANSPORT_MAX_SESSIONS_DEPRECATED) {
-                Some(max) => max.into_inner(),
-
-                // If this is set but not MAX_SESSIONS, it means a client sent it and we're too lazy to check.
-                None => match self.get(&Setting::WEBTRANSPORT_ENABLE_DEPRECATED) {
-                    Some(v) if v.into_inner() == 1 => 1,
-                    _ => 0,
-                },
-            },
+        if let Some(max) = self.get(&Setting::WEBTRANSPORT_MAX_SESSIONS) {
+            return max.into_inner();
         }
+
+        let enabled = self
+            .get(&Setting::WEBTRANSPORT_ENABLE_DEPRECATED)
+            .map(|v| v.into_inner());
+        if enabled != Some(1) {
+            return 0;
+        }
+
+        // Only the server is allowed to set this one, so if it's None we assume it's 1.
+        self.get(&Setting::WEBTRANSPORT_MAX_SESSIONS_DEPRECATED)
+            .map(|v| v.into_inner())
+            .unwrap_or(1)
     }
 }
 
