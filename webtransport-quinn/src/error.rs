@@ -1,5 +1,6 @@
 use thiserror::Error;
 
+/// An errors returned by [`crate::Session`], split based on if they are underlying QUIC errors or WebTransport errors.
 #[derive(Error, Debug)]
 pub enum SessionError {
     #[error("connection error: {0}")]
@@ -9,6 +10,7 @@ pub enum SessionError {
     WebTransportError(#[from] WebTransportError),
 }
 
+/// An error that can occur when reading/writing the WebTransport stream header.
 #[derive(Error, Debug)]
 pub enum WebTransportError {
     #[error("unknown session")]
@@ -33,6 +35,7 @@ impl webtransport_generic::SessionError for SessionError {
     }
 }
 
+/// An error when writing to [`crate::SendStream`]. Similar to [`quinn::WriteError`].
 #[derive(Error, Debug)]
 pub enum WriteError {
     #[error("STOP_SENDING: {0}")]
@@ -84,6 +87,7 @@ impl webtransport_generic::StreamError for WriteError {
     }
 }
 
+/// An error when reading from [`crate::RecvStream`]. Similar to [`quinn::ReadError`].
 #[derive(Error, Debug)]
 pub enum ReadError {
     #[error("session error: {0}")]
@@ -139,6 +143,7 @@ impl webtransport_generic::StreamError for ReadError {
     }
 }
 
+/// An error returned by [`crate::RecvStream::read_exact`]. Similar to [`quinn::ReadExactError`].
 #[derive(Error, Debug)]
 pub enum ReadExactError {
     #[error("finished early")]
@@ -157,6 +162,7 @@ impl From<quinn::ReadExactError> for ReadExactError {
     }
 }
 
+/// An error returned by [`crate::RecvStream::read_to_end`]. Similar to [`quinn::ReadToEndError`].
 #[derive(Error, Debug)]
 pub enum ReadToEndError {
     #[error("too long")]
@@ -175,7 +181,7 @@ impl From<quinn::ReadToEndError> for ReadToEndError {
     }
 }
 
-// Just a slightly less confusing error message.
+/// An error indicating the stream was already closed. Same as [`quinn::UnknownStream`] but a less confusing name.
 #[derive(Error, Debug)]
 #[error("stream closed")]
 pub struct StreamClosed;
@@ -186,6 +192,7 @@ impl From<quinn::UnknownStream> for StreamClosed {
     }
 }
 
+/// An error returned by [`crate::SendStream::stopped`]. Similar to [`quinn::StoppedError`].
 #[derive(Error, Debug)]
 pub enum StoppedError {
     #[error("session error: {0}")]

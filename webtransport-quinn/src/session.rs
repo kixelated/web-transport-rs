@@ -11,13 +11,14 @@ use crate::{Connect, RecvStream, SendStream, SessionError, Settings, WebTranspor
 
 use webtransport_proto::{Frame, StreamUni, VarInt};
 
-/// An established WebTransport session, acting like a full QUIC connection.
-/// This is a thin wrapper around [`quinn::Connection`] using `Deref` to access any methods that are not overloaded.
+/// An established WebTransport session, acting like a full QUIC connection. See [`quinn::Connection`].
 ///
 /// It is important to remember that WebTransport is layered on top of QUIC:
 ///   1. Each stream starts with a few bytes identifying the stream type and session ID.
 ///   2. Errors codes are encoded with the session ID, so they aren't full QUIC error codes.
 ///   3. Stream IDs may have gaps in them, used by HTTP/3 transparant to the application.
+///
+/// Any non-overloaded methods can be using `Deref`. Be careful if you suspect a new Quinn method is not compatible with WebTransport and needs to be wrapped.
 ///
 /// The session can be cloned so it can be accessed from multiple handles.
 #[derive(Clone)]
@@ -65,14 +66,14 @@ impl Session {
     /// Open a new unidirectional stream. See [`quinn::Connection::open_uni`].
     pub async fn open_uni(&self) -> Result<SendStream, SessionError> {
         let mut send = self.conn.open_uni().await?;
-        Self::write(&mut send, &self.header_uni).await?;
+        Self::write_full(&mut send, &self.header_uni).await?;
         Ok(SendStream::new(send))
     }
 
     /// Open a new bidirectional stream. See [`quinn::Connection::open_bi`].
     pub async fn open_bi(&self) -> Result<(SendStream, RecvStream), SessionError> {
         let (mut send, recv) = self.conn.open_bi().await?;
-        Self::write(&mut send, &self.header_bi).await?;
+        Self::write_full(&mut send, &self.header_bi).await?;
         Ok((SendStream::new(send), RecvStream::new(recv)))
     }
 
@@ -136,21 +137,24 @@ impl Session {
         unimplemented!("datagrams")
     }
 
+    /// Immediately close the connection with an error code and reason. See [`quinn::Connection::close`].
     pub fn close(&self, code: u32, reason: &[u8]) {
         let code = webtransport_proto::error_to_http3(code).try_into().unwrap();
         self.conn.close(code, reason)
     }
 
+    /// Wait until the session is closed, returning the error. See [`quinn::Connection::closed`].
     pub async fn closed(&self) -> SessionError {
         self.conn.closed().await.into()
     }
 
-    pub async fn close_reason(&self) -> Option<SessionError> {
+    /// Return why the session was closed, or None if it's not closed. See [`quinn::Connection::close_reason`].
+    pub fn close_reason(&self) -> Option<SessionError> {
         self.conn.close_reason().map(Into::into)
     }
 
-    // Fully read into the buffer and cast any errors
-    async fn read(recv: &mut quinn::RecvStream, buf: &mut [u8]) -> Result<(), SessionError> {
+    // Read into the provided buffer and cast any errors to SessionError.
+    async fn read_full(recv: &mut quinn::RecvStream, buf: &mut [u8]) -> Result<(), SessionError> {
         match recv.read_exact(buf).await {
             Ok(()) => Ok(()),
             Err(quinn::ReadExactError::ReadError(quinn::ReadError::ConnectionLost(err))) => {
@@ -166,11 +170,11 @@ impl Session {
         let mut buf = [0; 8];
 
         // Read the first byte because it includes the length.
-        Self::read(recv, &mut buf[0..1]).await?;
+        Self::read_full(recv, &mut buf[0..1]).await?;
 
         // 0b00 = 1, 0b01 = 2, 0b10 = 4, 0b11 = 8
         let size = 1 << (buf[0] >> 6);
-        Self::read(recv, &mut buf[1..size]).await?;
+        Self::read_full(recv, &mut buf[1..size]).await?;
 
         // Use a cursor to read the varint on the stack.
         let mut cursor = std::io::Cursor::new(&buf[..size]);
@@ -179,7 +183,7 @@ impl Session {
         Ok(v)
     }
 
-    async fn write(send: &mut quinn::SendStream, buf: &[u8]) -> Result<(), SessionError> {
+    async fn write_full(send: &mut quinn::SendStream, buf: &[u8]) -> Result<(), SessionError> {
         match send.write_all(buf).await {
             Ok(_) => Ok(()),
             Err(quinn::WriteError::ConnectionLost(err)) => Err(err.into()),

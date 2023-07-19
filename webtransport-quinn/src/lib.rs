@@ -3,7 +3,7 @@
 //!
 //! WebTransport is layered on top of HTTP/3 which is then layered on top of QUIC.
 //! This library hides that detail and tries to expose only the QUIC API, delegating as much as possible to the underlying implementation.
-//! See the [Quinn documentation](https://docs.rs/quinn/latest/quinn/) for the full API.
+//! See the [Quinn documentation](https://docs.rs/quinn/latest/quinn/) for more documentation.
 //!
 //! QUIC provides two primary APIs:
 //!
