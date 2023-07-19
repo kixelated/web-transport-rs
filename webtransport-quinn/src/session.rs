@@ -1,7 +1,7 @@
 use std::{
     ops::{Deref, DerefMut},
     pin::pin,
-    sync::Arc,
+    sync::{Arc, Mutex},
     task::{Context, Poll},
 };
 
@@ -33,6 +33,11 @@ pub struct Session {
     #[allow(dead_code)]
     connect: Arc<Connect>,
 
+    // We also need to keep a reference to the qpack streams if the endpoint (incorrectly) creates them.
+    // Again, this is just so they don't get closed until we drop the session.
+    qpack_encoder: Arc<Mutex<Option<quinn::RecvStream>>>,
+    qpack_decoder: Arc<Mutex<Option<quinn::RecvStream>>>,
+
     // Cache the headers in front of each stream we open.
     header_uni: Vec<u8>,
     header_bi: Vec<u8>,
@@ -54,8 +59,11 @@ impl Session {
 
         Self {
             conn,
+
             settings: Arc::new(settings),
             connect: Arc::new(connect),
+            qpack_decoder: Arc::new(Mutex::new(None)),
+            qpack_encoder: Arc::new(Mutex::new(None)),
 
             session_id,
             header_uni,
@@ -89,18 +97,36 @@ impl Session {
                 continue;
             }
 
-            if typ != StreamUni::WEBTRANSPORT {
-                // Who knows what this stream is for, keep looping.
-                continue;
-            }
+            match typ {
+                StreamUni::WEBTRANSPORT => {
+                    // Read the session ID and make sure it matches.
+                    let session_id = Self::read_varint(&mut recv).await?;
+                    if session_id != self.session_id {
+                        return Err(WebTransportError::UnknownSession.into());
+                    }
 
-            let session_id = Self::read_varint(&mut recv).await?;
-            if session_id != self.session_id {
-                // Wrong session?
-                continue;
-            }
+                    // Wrap the stream so we'll correct the error types.
+                    let recv = RecvStream::new(recv);
 
-            return Ok(RecvStream::new(recv));
+                    return Ok(recv);
+                }
+                StreamUni::QPACK_ENCODER => {
+                    // Save the qpack encoder stream so we will close it on drop.
+                    // It's technically an error to send two of these but who cares, we'll close the previous one.
+                    let mut qpack_encoder = self.qpack_encoder.lock().unwrap();
+                    *qpack_encoder = Some(recv);
+                }
+                StreamUni::QPACK_DECODER => {
+                    // Save the qpack encoder stream so we will close it on drop.
+                    // It's technically an error to send two of these but who cares, we'll close the previous one.
+                    let mut qpack_decoder = self.qpack_decoder.lock().unwrap();
+                    *qpack_decoder = Some(recv);
+                }
+
+                // Who knows what this stream is for.
+                // Close it, try another, and hope the other endpoint doesn't close the session.
+                _ => (),
+            }
         }
     }
 
@@ -110,11 +136,11 @@ impl Session {
             let (send, mut recv) = self.conn.accept_bi().await?;
 
             let typ = Self::read_varint(&mut recv).await?;
-            match Frame(typ) {
-                Frame::WEBTRANSPORT => (),
-                Frame::HEADERS => (), // TODO write a 4xx error
-                _ => continue,        // TODO write a 4xx error
-            };
+            if Frame(typ) != Frame::WEBTRANSPORT {
+                // Close it, accept the next, and hope we don't error.
+                // TODO write a Method not Allowed HTTP/3 response?
+                continue;
+            }
 
             let session_id = Self::read_varint(&mut recv).await?;
             if session_id != self.session_id {

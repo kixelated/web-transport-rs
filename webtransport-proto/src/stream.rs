@@ -35,6 +35,7 @@ macro_rules! streams_uni {
 
 streams_uni! {
     CONTROL = 0x00,
+    PUSH = 0x01,
     QPACK_ENCODER = 0x02,
     QPACK_DECODER = 0x03,
     WEBTRANSPORT = 0x54,
