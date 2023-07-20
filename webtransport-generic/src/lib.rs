@@ -27,12 +27,14 @@ pub trait Session {
     /// Accept an incoming bidirectional stream
     ///
     /// Returning `None` implies the connection is closing or closed.
+    #[allow(clippy::type_complexity)]
     fn poll_accept_bidi(
         &mut self,
         cx: &mut Context<'_>,
     ) -> Poll<Result<(Self::SendStream, Self::RecvStream), Self::Error>>;
 
     /// Poll the connection to create a new bidirectional stream.
+    #[allow(clippy::type_complexity)]
     fn poll_open_bidi(
         &mut self,
         cx: &mut Context<'_>,

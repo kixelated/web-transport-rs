@@ -194,15 +194,17 @@ impl SessionAccept {
         &mut self,
         cx: &mut Context<'_>,
     ) -> Poll<Result<RecvStream, SessionError>> {
-        // Accept any new streams.
-        if let Poll::Ready(Some(res)) = self.accept_uni.poll_next_unpin(cx) {
-            // Start decoding the header and add the future to the list of pending streams.
-            let recv = res?;
-            let pending = Self::decode_uni(recv, self.session_id);
-            self.pending_uni.push(Box::pin(pending));
-        }
-
         loop {
+            // Accept any new streams.
+            if let Poll::Ready(Some(res)) = self.accept_uni.poll_next_unpin(cx) {
+                // Start decoding the header and add the future to the list of pending streams.
+                let recv = res?;
+                let pending = Self::decode_uni(recv, self.session_id);
+                self.pending_uni.push(Box::pin(pending));
+
+                continue;
+            }
+
             // Poll the list of pending streams.
             let (typ, recv) = match ready!(self.pending_uni.poll_next_unpin(cx)) {
                 Some(res) => res?,
@@ -251,15 +253,17 @@ impl SessionAccept {
         &mut self,
         cx: &mut Context<'_>,
     ) -> Poll<Result<(SendStream, RecvStream), SessionError>> {
-        // Accept any new streams.
-        if let Poll::Ready(Some(res)) = self.accept_bi.poll_next_unpin(cx) {
-            // Start decoding the header and add the future to the list of pending streams.
-            let (send, recv) = res?;
-            let pending = Self::decode_bi(send, recv, self.session_id);
-            self.pending_bi.push(Box::pin(pending));
-        }
-
         loop {
+            // Accept any new streams.
+            if let Poll::Ready(Some(res)) = self.accept_bi.poll_next_unpin(cx) {
+                // Start decoding the header and add the future to the list of pending streams.
+                let (send, recv) = res?;
+                let pending = Self::decode_bi(send, recv, self.session_id);
+                self.pending_bi.push(Box::pin(pending));
+
+                continue;
+            }
+
             // Poll the list of pending streams.
             let res = match ready!(self.pending_bi.poll_next_unpin(cx)) {
                 Some(res) => res?,
@@ -297,6 +301,7 @@ impl SessionAccept {
 
         Ok(Some((send, recv)))
     }
+
     // Read into the provided buffer and cast any errors to SessionError.
     async fn read_full(recv: &mut quinn::RecvStream, buf: &mut [u8]) -> Result<(), SessionError> {
         match recv.read_exact(buf).await {
