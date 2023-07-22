@@ -1,5 +1,3 @@
-
-
 // Implements https://datatracker.ietf.org/doc/html/draft-frindell-webtrans-devious-baton
 mod baton;
 
@@ -8,7 +6,11 @@ use clap::Parser;
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
-    #[arg(short, long, default_value = "https://localhost:4443/baton")]
+    #[arg(
+        short,
+        long,
+        default_value = "https://localhost:4443/webtransport/devious-baton"
+    )]
     uri: http::Uri,
 }
 

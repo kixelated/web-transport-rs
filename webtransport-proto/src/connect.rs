@@ -56,21 +56,16 @@ pub struct ConnectRequest {
 
 impl ConnectRequest {
     pub fn decode<B: Buf>(buf: &mut B) -> Result<Self, ConnectError> {
-        let typ = Frame::decode(buf).map_err(|_| ConnectError::UnexpectedEnd)?;
+        log::info!("decoding connect request : {:?}", buf.chunk());
+
+        let (typ, mut data) = Frame::read(buf).map_err(|_| ConnectError::UnexpectedEnd)?;
         if typ != Frame::HEADERS {
             return Err(ConnectError::UnexpectedFrame(typ));
         }
 
-        let size = VarInt::decode(buf).map_err(|_| ConnectError::UnexpectedEnd)?;
-        let mut limit = Buf::take(buf, size.into_inner() as usize);
-        if limit.limit() > limit.remaining() {
-            // Not enough data in the buffer
-            return Err(ConnectError::UnexpectedEnd);
-        }
-
         // We no longer return UnexpectedEnd because we know the buffer should be large enough.
 
-        let headers = qpack::Headers::decode(&mut limit)?;
+        let headers = qpack::Headers::decode(&mut data)?;
 
         let mut parts = http::uri::Parts::default();
         parts.scheme = headers
@@ -146,19 +141,14 @@ pub struct ConnectResponse {
 
 impl ConnectResponse {
     pub fn decode<B: Buf>(buf: &mut B) -> Result<Self, ConnectError> {
-        let typ = Frame::decode(buf).map_err(|_| ConnectError::UnexpectedEnd)?;
+        log::info!("decoding connect response: {:?}", buf.chunk());
+
+        let (typ, mut data) = Frame::read(buf).map_err(|_| ConnectError::UnexpectedEnd)?;
         if typ != Frame::HEADERS {
             return Err(ConnectError::UnexpectedFrame(typ));
         }
 
-        let size = VarInt::decode(buf).map_err(|_| ConnectError::UnexpectedEnd)?;
-
-        let mut limit = Buf::take(buf, size.into_inner() as usize);
-        if limit.limit() > limit.remaining() {
-            return Err(ConnectError::UnexpectedEnd);
-        }
-
-        let headers = qpack::Headers::decode(&mut limit)?;
+        let headers = qpack::Headers::decode(&mut data)?;
 
         let status = match headers
             .get(":status")

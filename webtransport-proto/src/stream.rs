@@ -15,7 +15,7 @@ impl StreamUni {
         self.0.encode(buf)
     }
 
-    pub fn is_reserved(&self) -> bool {
+    pub fn is_grease(&self) -> bool {
         let val = self.0.into_inner();
         if val < 0x21 {
             return false;

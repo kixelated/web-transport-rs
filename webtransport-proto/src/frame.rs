@@ -7,11 +7,41 @@ pub struct Frame(pub VarInt);
 
 impl Frame {
     pub fn decode<B: Buf>(buf: &mut B) -> Result<Self, VarIntUnexpectedEnd> {
-        Ok(Frame(VarInt::decode(buf)?))
+        let typ = VarInt::decode(buf)?;
+        Ok(Frame(typ))
     }
 
     pub fn encode<B: BufMut>(&self, buf: &mut B) {
         self.0.encode(buf)
+    }
+
+    pub fn is_grease(&self) -> bool {
+        let val = self.0.into_inner();
+        if val < 0x21 {
+            return false;
+        }
+
+        (val - 0x21) % 0x1f == 0
+    }
+
+    pub fn read<B: Buf>(
+        buf: &mut B,
+    ) -> Result<(Frame, bytes::buf::Take<&mut B>), VarIntUnexpectedEnd> {
+        let typ = Frame::decode(buf)?;
+        let size = VarInt::decode(buf)?;
+
+        let mut limit = Buf::take(buf, size.into_inner() as usize);
+        if limit.remaining() < limit.limit() {
+            return Err(VarIntUnexpectedEnd);
+        }
+
+        // Try again if this is a GREASE frame we need to ignore
+        if typ.is_grease() {
+            limit.advance(limit.limit());
+            return Self::read(limit.into_inner());
+        }
+
+        Ok((typ, limit))
     }
 }
 

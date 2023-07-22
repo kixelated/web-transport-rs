@@ -70,28 +70,23 @@ pub struct Settings(HashMap<Setting, VarInt>);
 
 impl Settings {
     pub fn decode<B: Buf>(buf: &mut B) -> Result<Self, SettingsError> {
+        log::info!("decoding settings: {:?}", buf.chunk());
+
         let typ = StreamUni::decode(buf).map_err(|_| SettingsError::UnexpectedEnd)?;
         if typ != StreamUni::CONTROL {
             return Err(SettingsError::UnexpectedStreamType(typ));
         }
 
-        let typ = Frame::decode(buf).map_err(|_| SettingsError::UnexpectedEnd)?;
+        let (typ, mut data) = Frame::read(buf).map_err(|_| SettingsError::UnexpectedEnd)?;
         if typ != Frame::SETTINGS {
             return Err(SettingsError::UnexpectedFrame(typ));
         }
 
-        let size = VarInt::decode(buf).map_err(|_| SettingsError::UnexpectedEnd)?;
-
-        let mut limit = bytes::Buf::take(buf, size.into_inner() as usize);
-        if limit.remaining() < limit.limit() {
-            return Err(SettingsError::UnexpectedEnd);
-        }
-
         let mut settings = Settings::default();
-        while limit.has_remaining() {
+        while data.has_remaining() {
             // These return a different error because retrying won't help.
-            let id = Setting::decode(&mut limit).map_err(|_| SettingsError::InvalidSize)?;
-            let value = VarInt::decode(&mut limit).map_err(|_| SettingsError::InvalidSize)?;
+            let id = Setting::decode(&mut data).map_err(|_| SettingsError::InvalidSize)?;
+            let value = VarInt::decode(&mut data).map_err(|_| SettingsError::InvalidSize)?;
             settings.0.insert(id, value);
         }
 
