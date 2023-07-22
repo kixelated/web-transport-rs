@@ -85,6 +85,11 @@ pub async fn run(
                 let (baton, source) = res.unwrap()??;
                 log::info!("sent baton: value={} type={:?}", baton, source);
 
+                if baton == 0 {
+                    // We don't expect a response.
+                    continue
+                }
+
                 if let Outbound::LocalBi(recv) = source {
                     inbound.spawn(async move {
                         let baton = recv_baton(recv).await?;

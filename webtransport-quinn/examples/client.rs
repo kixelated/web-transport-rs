@@ -1,13 +1,24 @@
-use anyhow::Context;
+
 
 // Implements https://datatracker.ietf.org/doc/html/draft-frindell-webtrans-devious-baton
 mod baton;
+
+use clap::Parser;
+
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+struct Args {
+    #[arg(short, long, default_value = "https://localhost:4443/baton")]
+    uri: http::Uri,
+}
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     // Enable info logging.
     let env = env_logger::Env::default().default_filter_or("info");
     env_logger::init_from_env(env);
+
+    let args = Args::parse();
 
     // Standard quinn setup.
     let mut tls_config = rustls::ClientConfig::builder()
@@ -25,14 +36,11 @@ async fn main() -> anyhow::Result<()> {
 
     //	Create the WebTransport URL.
     let batons = 1;
-    let uri = "https://localhost:4443/webtransport/devious-baton"
-        .try_into()
-        .context("failed to parse uri")?;
 
-    log::info!("connecting to {}", uri);
+    log::info!("connecting to {}", args.uri);
 
     // Connect to the given URI.
-    let session = webtransport_quinn::connect(&client, &uri).await?;
+    let session = webtransport_quinn::connect(&client, &args.uri).await?;
 
     // Run the baton code.
     baton::run(session, None, batons).await?;

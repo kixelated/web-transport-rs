@@ -3,11 +3,22 @@ use anyhow::Context;
 // Implements https://datatracker.ietf.org/doc/html/draft-frindell-webtrans-devious-baton
 mod baton;
 
+use clap::Parser;
+
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+struct Args {
+    #[arg(short, long, default_value = "[::]:4443")]
+    addr: std::net::SocketAddr,
+}
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     // Enable info logging.
     let env = env_logger::Env::default().default_filter_or("info");
     env_logger::init_from_env(env);
+
+    let args = Args::parse();
 
     // Generate a self-signed certificate
     let gen = rcgen::generate_simple_self_signed(vec!["localhost".into()]).unwrap();
@@ -30,10 +41,9 @@ async fn main() -> anyhow::Result<()> {
 
     let config = quinn::ServerConfig::with_crypto(std::sync::Arc::new(tls_config));
 
-    let addr = "[::]:4443".parse()?;
-    let server = quinn::Endpoint::server(config, addr)?;
+    log::info!("listening on {}", args.addr);
 
-    log::info!("listening on {}", addr);
+    let server = quinn::Endpoint::server(config, args.addr)?;
 
     // Accept new connections.
     while let Some(conn) = server.accept().await {

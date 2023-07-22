@@ -1,5 +1,6 @@
 use std::{
     future::{poll_fn, Future},
+    io::Cursor,
     ops::Deref,
     pin::{pin, Pin},
     sync::{Arc, Mutex},
@@ -326,7 +327,7 @@ impl SessionAccept {
         Self::read_full(recv, &mut buf[1..size]).await?;
 
         // Use a cursor to read the varint on the stack.
-        let mut cursor = std::io::Cursor::new(&buf[..size]);
+        let mut cursor = Cursor::new(&buf[..size]);
         let v = VarInt::decode(&mut cursor).unwrap();
 
         Ok(v)
