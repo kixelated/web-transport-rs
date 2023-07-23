@@ -70,8 +70,6 @@ pub struct Settings(HashMap<Setting, VarInt>);
 
 impl Settings {
     pub fn decode<B: Buf>(buf: &mut B) -> Result<Self, SettingsError> {
-        log::info!("decoding settings: {:?}", buf.chunk());
-
         let typ = StreamUni::decode(buf).map_err(|_| SettingsError::UnexpectedEnd)?;
         if typ != StreamUni::CONTROL {
             return Err(SettingsError::UnexpectedStreamType(typ));

@@ -19,9 +19,7 @@ pub fn parse(request: &Request) -> anyhow::Result<(u8, u16)> {
     if let Some(str) = request.uri().query() {
         // Split the query string into key-value pairs
         for part in str.split('&') {
-            let mut split = part.splitn(2, '=');
-            let key = split.next().context("no key")?;
-            let value = split.next().context("no value")?;
+            let (key, value) = part.split_once('=').context("failed to split")?;
             query.insert(key, value);
         }
     }

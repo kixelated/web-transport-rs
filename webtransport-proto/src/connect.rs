@@ -56,8 +56,6 @@ pub struct ConnectRequest {
 
 impl ConnectRequest {
     pub fn decode<B: Buf>(buf: &mut B) -> Result<Self, ConnectError> {
-        log::info!("decoding connect request : {:?}", buf.chunk());
-
         let (typ, mut data) = Frame::read(buf).map_err(|_| ConnectError::UnexpectedEnd)?;
         if typ != Frame::HEADERS {
             return Err(ConnectError::UnexpectedFrame(typ));
@@ -141,8 +139,6 @@ pub struct ConnectResponse {
 
 impl ConnectResponse {
     pub fn decode<B: Buf>(buf: &mut B) -> Result<Self, ConnectError> {
-        log::info!("decoding connect response: {:?}", buf.chunk());
-
         let (typ, mut data) = Frame::read(buf).map_err(|_| ConnectError::UnexpectedEnd)?;
         if typ != Frame::HEADERS {
             return Err(ConnectError::UnexpectedFrame(typ));

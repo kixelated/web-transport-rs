@@ -1414,7 +1414,6 @@ dependencies = [
  "env_logger",
  "futures",
  "http",
- "log",
  "quinn",
  "quinn-proto",
  "rand",
