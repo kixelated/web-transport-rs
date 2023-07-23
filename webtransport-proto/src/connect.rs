@@ -118,7 +118,7 @@ impl ConnectRequest {
             headers.set(":authority", host.as_str());
         }
 
-        headers.set(":path", self.uri.path());
+        headers.set(":path", self.uri.path_and_query().unwrap().as_str());
         headers.set(":protocol", "webtransport");
 
         // Use a temporary buffer so we can compute the size.
