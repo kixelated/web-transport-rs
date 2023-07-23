@@ -1399,7 +1399,6 @@ version = "0.4.0"
 dependencies = [
  "bytes",
  "http",
- "log",
  "thiserror",
 ]
 
@@ -1414,6 +1413,7 @@ dependencies = [
  "env_logger",
  "futures",
  "http",
+ "log",
  "quinn",
  "quinn-proto",
  "rand",
