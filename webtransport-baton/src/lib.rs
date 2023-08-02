@@ -184,7 +184,7 @@ async fn recv_baton<R: AsyncRecvStream>(mut stream: R) -> anyhow::Result<u8> {
 
     // TODO also check that padding varint is correct.
     if buf.len() < 2 {
-        anyhow::bail!("baton message too small");
+        anyhow::bail!("baton message too small: {}", buf.len());
     }
 
     let baton = buf[buf.len() - 1];

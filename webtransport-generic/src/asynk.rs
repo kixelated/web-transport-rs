@@ -163,8 +163,9 @@ where
         let this = &mut *self;
         let mut stream = Pin::new(&mut this.stream);
 
-        while !this.buf.has_remaining() {
-            match ready!(stream.poll_send(cx, this.buf)) {
+        while this.buf.has_remaining() {
+            let res = stream.poll_send(cx, this.buf);
+            match ready!(res) {
                 // Not valid but handle it anyway.
                 Ok(0) => return Poll::Pending,
 
@@ -217,7 +218,8 @@ where
         let mut stream = Pin::new(&mut this.stream);
 
         loop {
-            match ready!(stream.poll_recv(cx, &mut this.buf)) {
+            let res = stream.poll_recv(cx, &mut this.buf);
+            match ready!(res) {
                 // This is invalid but handle it just in case
                 Ok(Some(0)) => return Poll::Pending,
 
