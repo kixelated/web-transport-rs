@@ -4,50 +4,44 @@ use std::error::Error;
 
 use std::task::{Context, Poll};
 
-mod ext;
-pub use ext::*;
+mod asynk;
+pub use asynk::*;
 
 /// Trait representing a WebTransport session
+///
+/// These methods take a &self so it's easy to have multiple handles, mirroring the Quinn API.
 pub trait Session {
-    /// The type produced by `poll_accept_bidi()`
-    //type BidiStream: BidiStream;
-    /// The type of the sending part of `BidiStream`
     type SendStream: SendStream;
-    /// The type produced by `poll_accept_uni()`
     type RecvStream: RecvStream;
-    /// Error type yielded by this trait's methods
     type Error: SessionError;
 
     /// Accept an incoming unidirectional stream
-    fn poll_accept_uni(
-        &mut self,
-        cx: &mut Context<'_>,
-    ) -> Poll<Result<Self::RecvStream, Self::Error>>;
+    fn poll_accept_uni(&self, cx: &mut Context<'_>) -> Poll<Result<Self::RecvStream, Self::Error>>;
 
     /// Accept an incoming bidirectional stream
     ///
     /// Returning `None` implies the connection is closing or closed.
     #[allow(clippy::type_complexity)]
-    fn poll_accept_bidi(
-        &mut self,
+    fn poll_accept_bi(
+        &self,
         cx: &mut Context<'_>,
     ) -> Poll<Result<(Self::SendStream, Self::RecvStream), Self::Error>>;
 
     /// Poll the connection to create a new bidirectional stream.
     #[allow(clippy::type_complexity)]
-    fn poll_open_bidi(
-        &mut self,
+    fn poll_open_bi(
+        &self,
         cx: &mut Context<'_>,
     ) -> Poll<Result<(Self::SendStream, Self::RecvStream), Self::Error>>;
 
     /// Poll the connection to create a new unidirectional stream.
-    fn poll_open_uni(
-        &mut self,
-        cx: &mut Context<'_>,
-    ) -> Poll<Result<Self::SendStream, Self::Error>>;
+    fn poll_open_uni(&self, cx: &mut Context<'_>) -> Poll<Result<Self::SendStream, Self::Error>>;
 
     /// Close the connection immediately
-    fn close(&mut self, code: u32, reason: &[u8]);
+    fn close(&self, code: u32, reason: &[u8]);
+
+    /// Check if the connection is closed, returing the error if it is.
+    fn poll_closed(&self, cx: &mut Context<'_>) -> Poll<Self::Error>;
 }
 
 /// Trait that represent an error from the transport layer
@@ -67,15 +61,12 @@ pub trait SendStream {
     /// The error type returned by fallible send methods.
     type Error: StreamError;
 
-    /// Attempts to write data into the stream, returns the number of bytes written.
+    /// Attempts to write data into the stream, advancing the Buf and returning the number of bytes written.
     fn poll_send<B: Buf>(
         &mut self,
         cx: &mut Context<'_>,
         buf: &mut B,
     ) -> Poll<Result<usize, Self::Error>>;
-
-    /// Poll to finish the sending side of the stream.
-    fn poll_finish(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>>;
 
     /// Send a QUIC reset code.
     fn reset(&mut self, reset_code: u32);

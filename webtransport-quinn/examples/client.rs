@@ -1,6 +1,3 @@
-// Implements https://datatracker.ietf.org/doc/html/draft-frindell-webtrans-devious-baton
-mod baton;
-
 use clap::Parser;
 
 #[derive(Parser, Debug)]
@@ -45,7 +42,7 @@ async fn main() -> anyhow::Result<()> {
     let session = webtransport_quinn::connect(&client, &args.uri).await?;
 
     // Run the baton code.
-    baton::run(session, None, batons).await?;
+    webtransport_baton::run(session, None, batons).await?;
 
     log::info!("finished baton successfully!");
 

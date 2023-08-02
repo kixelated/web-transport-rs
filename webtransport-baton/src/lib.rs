@@ -1,22 +1,22 @@
-use std::collections::HashMap;
-use std::fmt;
+// Implements https://datatracker.ietf.org/doc/html/draft-frindell-webtrans-devious-baton
+
+use std::{collections::HashMap, fmt, io::Cursor, sync::Arc};
 
 use anyhow::Context;
 use rand::Rng;
 use tokio::task::JoinSet;
 
-use webtransport_quinn::{RecvStream, Request, SendStream, Session};
+use webtransport_generic::{AsyncRecvStream, AsyncSendStream, AsyncSession};
 
-#[allow(dead_code)] // used by server only
-pub fn parse(request: &Request) -> anyhow::Result<(u8, u16)> {
-    if request.uri().path() != "/webtransport/devious-baton" {
-        anyhow::bail!("invalid path: {}", request.uri().path());
+pub fn parse(uri: &http::Uri) -> anyhow::Result<(u8, u16)> {
+    if uri.path() != "/webtransport/devious-baton" {
+        anyhow::bail!("invalid path: {}", uri.path());
     }
 
     let mut query = HashMap::new();
 
     // Get the query string after the path.
-    if let Some(str) = request.uri().query() {
+    if let Some(str) = uri.query() {
         // Split the query string into key-value pairs
         for part in str.split('&') {
             let (key, value) = part.split_once('=').context("failed to split")?;
@@ -52,16 +52,23 @@ pub fn parse(request: &Request) -> anyhow::Result<(u8, u16)> {
 }
 
 // Sends and receives batons until they all reach 0.
-pub async fn run(
-    session: Session,
+pub async fn run<S>(
+    session: S,
     init: Option<u8>, // None if we're the client
     mut count: u16,   // the number of batons
-) -> anyhow::Result<()> {
+) -> anyhow::Result<()>
+where
+    S: AsyncSession + Sync + 'static,
+    S::SendStream: AsyncSendStream + 'static,
+    S::RecvStream: AsyncRecvStream + 'static,
+{
     // Writing the baton to a stream
-    let mut outbound = JoinSet::<anyhow::Result<(u8, Outbound)>>::new();
+    let mut outbound = JoinSet::<anyhow::Result<(u8, Outbound<S::RecvStream>)>>::new();
 
     // Reading the baton from a stream
-    let mut inbound = JoinSet::<anyhow::Result<(u8, Inbound)>>::new();
+    let mut inbound = JoinSet::<anyhow::Result<(u8, Inbound<S::SendStream>)>>::new();
+
+    let session = Arc::new(session);
 
     // If we're the server, queue up the initial batons to send.
     if let Some(init) = init {
@@ -170,8 +177,10 @@ pub async fn run(
     Ok(())
 }
 
-async fn recv_baton(mut recv: RecvStream) -> anyhow::Result<u8> {
-    let buf = recv.read_to_end(u16::MAX as usize).await?; // arbitrary max padding.
+async fn recv_baton<R: AsyncRecvStream>(mut stream: R) -> anyhow::Result<u8> {
+    // Read the entire stream into the buffer
+    let mut buf = Vec::new();
+    stream.recv_all(&mut buf).await?;
 
     // TODO also check that padding varint is correct.
     if buf.len() < 2 {
@@ -182,21 +191,22 @@ async fn recv_baton(mut recv: RecvStream) -> anyhow::Result<u8> {
     Ok(baton)
 }
 
-async fn send_baton(mut send: SendStream, baton: u8) -> anyhow::Result<()> {
+async fn send_baton<S: AsyncSendStream>(mut stream: S, baton: u8) -> anyhow::Result<()> {
+    let buf = [0, baton];
+
     // TODO support padding
-    send.write_all(&[0, baton]).await?;
-    send.finish().await?;
+    stream.send_all(&mut Cursor::new(buf)).await?;
 
     Ok(())
 }
 
-enum Inbound {
+enum Inbound<S: AsyncSendStream> {
     Uni,
     LocalBi, // we already wrote the baton
-    RemoteBi(SendStream),
+    RemoteBi(S),
 }
 
-impl fmt::Debug for Inbound {
+impl<S: AsyncSendStream> fmt::Debug for Inbound<S> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Inbound::Uni => write!(f, "Uni"),
@@ -206,13 +216,13 @@ impl fmt::Debug for Inbound {
     }
 }
 
-enum Outbound {
+enum Outbound<R: AsyncRecvStream> {
     Uni,
-    LocalBi(RecvStream),
+    LocalBi(R),
     RemoteBi, // we already read the baton
 }
 
-impl fmt::Debug for Outbound {
+impl<R: AsyncRecvStream> fmt::Debug for Outbound<R> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Outbound::Uni => write!(f, "Uni"),

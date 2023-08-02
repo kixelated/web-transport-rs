@@ -115,10 +115,6 @@ impl webtransport_generic::SendStream for SendStream {
         res.map_err(Into::into)
     }
 
-    fn poll_finish(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        self.inner.poll_finish(cx).map_err(Into::into)
-    }
-
     fn reset(&mut self, reset_code: u32) {
         SendStream::reset(self, reset_code).ok();
     }

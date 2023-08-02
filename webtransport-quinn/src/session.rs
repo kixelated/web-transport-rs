@@ -342,41 +342,39 @@ impl webtransport_generic::Session for Session {
     /// Accept an incoming unidirectional stream
     ///
     /// Returning `None` implies the connection is closing or closed.
-    fn poll_accept_uni(
-        &mut self,
-        cx: &mut Context<'_>,
-    ) -> Poll<Result<Self::RecvStream, Self::Error>> {
+    fn poll_accept_uni(&self, cx: &mut Context<'_>) -> Poll<Result<Self::RecvStream, Self::Error>> {
         self.accept.lock().unwrap().poll_accept_uni(cx)
     }
 
     /// Accept an incoming bidirectional stream
     ///
     /// Returning `None` implies the connection is closing or closed.
-    fn poll_accept_bidi(
-        &mut self,
+    fn poll_accept_bi(
+        &self,
         cx: &mut Context<'_>,
     ) -> Poll<Result<(Self::SendStream, Self::RecvStream), Self::Error>> {
         self.accept.lock().unwrap().poll_accept_bi(cx)
     }
 
     /// Poll the connection to create a new bidirectional stream.
-    fn poll_open_bidi(
-        &mut self,
+    fn poll_open_bi(
+        &self,
         cx: &mut Context<'_>,
     ) -> Poll<Result<(Self::SendStream, Self::RecvStream), Self::Error>> {
         pin!(self.open_bi()).poll(cx)
     }
 
     /// Poll the connection to create a new unidirectional stream.
-    fn poll_open_uni(
-        &mut self,
-        cx: &mut Context<'_>,
-    ) -> Poll<Result<Self::SendStream, Self::Error>> {
+    fn poll_open_uni(&self, cx: &mut Context<'_>) -> Poll<Result<Self::SendStream, Self::Error>> {
         pin!(self.open_uni()).poll(cx)
     }
 
     /// Close the connection immediately
-    fn close(&mut self, code: u32, reason: &[u8]) {
+    fn close(&self, code: u32, reason: &[u8]) {
         Session::close(self, code, reason)
+    }
+
+    fn poll_closed(&self, cx: &mut Context<'_>) -> Poll<Self::Error> {
+        pin!(self.closed()).poll(cx)
     }
 }
