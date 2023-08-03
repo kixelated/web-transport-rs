@@ -7,10 +7,11 @@ use std::task::{Context, Poll};
 mod asynk;
 pub use asynk::*;
 
-/// Trait representing a WebTransport session
+/// Trait representing a WebTransport session.
 ///
-/// These methods take a &self so it's easy to have multiple handles, mirroring the Quinn API.
-pub trait Session {
+/// The Session can be cloned to produce multiple handles and each method is &self, mirroing the Quinn API.
+/// This is overly permissive, but otherwise Quinn would need an extra Arc<Mutex<Session>> wrapper which would hurt performance.
+pub trait Session: Clone {
     type SendStream: SendStream;
     type RecvStream: RecvStream;
     type Error: SessionError;

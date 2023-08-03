@@ -6,8 +6,13 @@ use std::task::{ready, Context, Poll};
 
 use super::{RecvStream, SendStream, Session};
 
-/// Trait representing a WebTransport session
-pub trait AsyncSession: Session + Send + Unpin {
+/// Trait representing a WebTransport session.
+///
+/// The session can be cloned to create multiple handles.
+///
+/// Not all of these traits are strictly required for single-threaded runtimes.
+/// However, assuming that multi-threaded runtimes are the default makes life so much easier...
+pub trait AsyncSession: Session + Clone + Sync + Send + Unpin + 'static {
     /// A future that accepts an incoming unidirectional stream.
     fn accept_uni(&self) -> AcceptUni<'_, Self> {
         AcceptUni { session: self }
@@ -56,7 +61,7 @@ pub trait AsyncRecvStream: RecvStream + Send + Unpin {
     }
 }
 
-impl<S: Session + Unpin + Send> AsyncSession for S {}
+impl<S: Session + Clone + Unpin + Sync + Send + 'static> AsyncSession for S {}
 impl<S: SendStream + Unpin + Send> AsyncSendStream for S {}
 impl<R: RecvStream + Unpin + Send> AsyncRecvStream for R {}
 

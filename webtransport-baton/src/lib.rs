@@ -1,6 +1,6 @@
 // Implements https://datatracker.ietf.org/doc/html/draft-frindell-webtrans-devious-baton
 
-use std::{collections::HashMap, fmt, io::Cursor, sync::Arc};
+use std::{collections::HashMap, fmt, io::Cursor};
 
 use anyhow::Context;
 use rand::Rng;
@@ -58,17 +58,15 @@ pub async fn run<S>(
     mut count: u16,   // the number of batons
 ) -> anyhow::Result<()>
 where
-    S: AsyncSession + Sync + 'static,
-    S::SendStream: AsyncSendStream + 'static,
-    S::RecvStream: AsyncRecvStream + 'static,
+    S: AsyncSession,
+    S::SendStream: AsyncSendStream,
+    S::RecvStream: AsyncRecvStream,
 {
     // Writing the baton to a stream
     let mut outbound = JoinSet::<anyhow::Result<(u8, Outbound<S::RecvStream>)>>::new();
 
     // Reading the baton from a stream
     let mut inbound = JoinSet::<anyhow::Result<(u8, Inbound<S::SendStream>)>>::new();
-
-    let session = Arc::new(session);
 
     // If we're the server, queue up the initial batons to send.
     if let Some(init) = init {
