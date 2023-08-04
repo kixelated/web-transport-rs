@@ -133,7 +133,8 @@ type AcceptUni = dyn Stream<Item = Result<quinn::RecvStream, quinn::ConnectionEr
 type AcceptBi = dyn Stream<Item = Result<(quinn::SendStream, quinn::RecvStream), quinn::ConnectionError>>
     + Send;
 type PendingUni = dyn Future<Output = Result<(StreamUni, quinn::RecvStream), SessionError>> + Send;
-type PendingBi = dyn Future<Output = Result<Option<(SendStream, RecvStream)>, SessionError>> + Send;
+type PendingBi = dyn Future<Output = Result<Option<(quinn::SendStream, quinn::RecvStream)>, SessionError>>
+    + Send;
 
 // Logic just for accepting streams, which is annoying because of the stream header.
 pub struct SessionAccept {
@@ -272,6 +273,9 @@ impl SessionAccept {
             };
 
             if let Some((send, recv)) = res {
+                // Wrap the streams in our own types for correct error codes.
+                let send = SendStream::new(send);
+                let recv = RecvStream::new(recv);
                 return Poll::Ready(Ok((send, recv)));
             }
 
@@ -284,7 +288,7 @@ impl SessionAccept {
         send: quinn::SendStream,
         mut recv: quinn::RecvStream,
         expected_session: VarInt,
-    ) -> Result<Option<(SendStream, RecvStream)>, SessionError> {
+    ) -> Result<Option<(quinn::SendStream, quinn::RecvStream)>, SessionError> {
         let typ = Self::read_varint(&mut recv).await?;
         if Frame(typ) != Frame::WEBTRANSPORT {
             return Ok(None);
@@ -295,10 +299,6 @@ impl SessionAccept {
         if session_id != expected_session {
             return Err(WebTransportError::UnknownSession.into());
         }
-
-        // Wrap the streams in our own types for correct error codes.
-        let send = SendStream::new(send);
-        let recv = RecvStream::new(recv);
 
         Ok(Some((send, recv)))
     }
