@@ -1404,6 +1404,7 @@ name = "webtransport-generic"
 version = "0.3.0"
 dependencies = [
  "bytes",
+ "tokio",
 ]
 
 [[package]]

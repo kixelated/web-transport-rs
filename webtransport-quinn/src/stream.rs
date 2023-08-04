@@ -1,11 +1,10 @@
 use std::{
     io,
-    pin::{pin, Pin},
-    task::{ready, Context, Poll},
+    pin::Pin,
+    task::{Context, Poll},
 };
 
-use bytes::{Buf, BufMut, Bytes};
-use futures::Future;
+use bytes::Bytes;
 
 use crate::{ReadError, ReadExactError, ReadToEndError, StoppedError, StreamClosed, WriteError};
 
@@ -100,21 +99,6 @@ impl tokio::io::AsyncWrite for SendStream {
 }
 
 impl webtransport_generic::SendStream for SendStream {
-    type Error = WriteError;
-
-    fn poll_send<B: Buf>(
-        &mut self,
-        cx: &mut Context<'_>,
-        buf: &mut B,
-    ) -> Poll<Result<usize, Self::Error>> {
-        let res = pin!(self.write(buf.chunk())).poll(cx);
-        if let Poll::Ready(Ok(size)) = res {
-            buf.advance(size);
-        }
-
-        res.map_err(Into::into)
-    }
-
     fn reset(&mut self, reset_code: u32) {
         SendStream::reset(self, reset_code).ok();
     }
@@ -190,32 +174,6 @@ impl tokio::io::AsyncRead for RecvStream {
 }
 
 impl webtransport_generic::RecvStream for RecvStream {
-    /// The error type that can occur when receiving data.
-    type Error = ReadError;
-
-    /// Poll the stream for more data.
-    ///
-    /// When the receive side will no longer receive more data (such as because
-    /// the peer closed their sending side), this should return `None`.
-    fn poll_recv<B: BufMut>(
-        &mut self,
-        cx: &mut Context<'_>,
-        buf: &mut B,
-    ) -> Poll<Result<Option<usize>, Self::Error>> {
-        let size = buf.remaining_mut();
-        let res = pin!(self.read_chunk(size, true)).poll(cx);
-
-        Poll::Ready(match ready!(res) {
-            Ok(Some(chunk)) => {
-                let size = chunk.bytes.len();
-                buf.put(chunk.bytes);
-                Ok(Some(size))
-            }
-            Ok(None) => Ok(None),
-            Err(e) => Err(e),
-        })
-    }
-
     /// Send a `STOP_SENDING` QUIC code.
     fn stop(&mut self, error_code: u32) {
         self.stop(error_code).ok();

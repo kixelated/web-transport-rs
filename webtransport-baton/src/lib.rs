@@ -1,12 +1,12 @@
 // Implements https://datatracker.ietf.org/doc/html/draft-frindell-webtrans-devious-baton
 
-use std::{collections::HashMap, fmt, io::Cursor};
+use std::{collections::HashMap, fmt};
 
 use anyhow::Context;
 use rand::Rng;
 use tokio::task::JoinSet;
 
-use webtransport_generic::{AsyncRecvStream, AsyncSendStream, AsyncSession};
+use webtransport_generic::{RecvStream, SendStream, Session};
 
 pub fn parse(uri: &http::Uri) -> anyhow::Result<(u8, u16)> {
     if uri.path() != "/webtransport/devious-baton" {
@@ -58,9 +58,7 @@ pub async fn run<S>(
     mut count: u16,   // the number of batons
 ) -> anyhow::Result<()>
 where
-    S: AsyncSession,
-    S::SendStream: AsyncSendStream,
-    S::RecvStream: AsyncRecvStream,
+    S: Session,
 {
     // Writing the baton to a stream
     let mut outbound = JoinSet::<anyhow::Result<(u8, Outbound<S::RecvStream>)>>::new();
@@ -175,10 +173,10 @@ where
     Ok(())
 }
 
-async fn recv_baton<R: AsyncRecvStream>(mut stream: R) -> anyhow::Result<u8> {
+async fn recv_baton<R: RecvStream>(mut stream: R) -> anyhow::Result<u8> {
     // Read the entire stream into the buffer
     let mut buf = Vec::new();
-    stream.recv_all(&mut buf).await?;
+    stream.read_to_end(&mut buf).await?;
 
     // TODO also check that padding varint is correct.
     if buf.len() < 2 {
@@ -189,22 +187,20 @@ async fn recv_baton<R: AsyncRecvStream>(mut stream: R) -> anyhow::Result<u8> {
     Ok(baton)
 }
 
-async fn send_baton<S: AsyncSendStream>(mut stream: S, baton: u8) -> anyhow::Result<()> {
+async fn send_baton<S: SendStream>(mut stream: S, baton: u8) -> anyhow::Result<()> {
     let buf = [0, baton];
-
-    // TODO support padding
-    stream.send_all(&mut Cursor::new(buf)).await?;
+    stream.write_all(&buf).await?;
 
     Ok(())
 }
 
-enum Inbound<S: AsyncSendStream> {
+enum Inbound<S: SendStream> {
     Uni,
     LocalBi, // we already wrote the baton
     RemoteBi(S),
 }
 
-impl<S: AsyncSendStream> fmt::Debug for Inbound<S> {
+impl<S: SendStream> fmt::Debug for Inbound<S> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Inbound::Uni => write!(f, "Uni"),
@@ -214,13 +210,13 @@ impl<S: AsyncSendStream> fmt::Debug for Inbound<S> {
     }
 }
 
-enum Outbound<R: AsyncRecvStream> {
+enum Outbound<R: RecvStream> {
     Uni,
     LocalBi(R),
     RemoteBi, // we already read the baton
 }
 
-impl<R: AsyncRecvStream> fmt::Debug for Outbound<R> {
+impl<R: RecvStream> fmt::Debug for Outbound<R> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Outbound::Uni => write!(f, "Uni"),
