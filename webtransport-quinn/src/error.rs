@@ -77,16 +77,6 @@ impl webtransport_generic::SessionError for WriteError {
     }
 }
 
-impl webtransport_generic::StreamError for WriteError {
-    /// Get the error code from STOP_SENDING iff it's a valid WebTransport error
-    fn stream_error(&self) -> Option<u32> {
-        match self {
-            WriteError::Stopped(code) => Some(*code),
-            _ => None,
-        }
-    }
-}
-
 /// An error when reading from [`crate::RecvStream`]. Similar to [`quinn::ReadError`].
 #[derive(Error, Debug)]
 pub enum ReadError {
@@ -128,16 +118,6 @@ impl webtransport_generic::SessionError for ReadError {
     fn session_error(&self) -> Option<u32> {
         match self {
             ReadError::SessionError(e) => e.session_error(),
-            _ => None,
-        }
-    }
-}
-
-impl webtransport_generic::StreamError for ReadError {
-    /// Get the QUIC error code from STOP_SENDING
-    fn stream_error(&self) -> Option<u32> {
-        match self {
-            ReadError::Reset(code) => Some(*code),
             _ => None,
         }
     }

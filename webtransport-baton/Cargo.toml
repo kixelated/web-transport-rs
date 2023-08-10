@@ -1,11 +1,11 @@
 [package]
-name = "webtransport-generic"
-description = "Generic trait to implement a webtransport API"
-authors = ["Luke Curley", "François Michel"]
+name = "webtransport-baton"
+description = "Implements devious-baton, used to test WebTransport implementations"
+authors = ["Luke Curley"]
 repository = "https://github.com/kixelated/webtransport-rs"
 license = "MIT OR Apache-2.0"
 
-version = "0.3.0"
+version = "0.1.0"
 edition = "2021"
 
 keywords = ["quic", "http3", "webtransport"]
@@ -16,4 +16,9 @@ categories = ["multimedia", "network-programming", "web-programming"]
 
 [dependencies]
 bytes = "1"
-tokio = "1"
+webtransport-generic = { path = "../webtransport-generic", version = "0.3" }
+anyhow = "1"
+rand = "0.8"
+tokio = { version = "1.27", features = ["full"] }
+log = "0.4"
+http = "0.2"

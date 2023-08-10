@@ -1,8 +1,5 @@
 use anyhow::Context;
 
-// Implements https://datatracker.ietf.org/doc/html/draft-frindell-webtrans-devious-baton
-mod baton;
-
 use clap::Parser;
 
 #[derive(Parser, Debug)]
@@ -72,7 +69,7 @@ async fn run_conn(conn: quinn::Connecting) -> anyhow::Result<()> {
     log::info!("received WebTransport request: {}", request.uri());
 
     // Parse the request URI to decide if we should accept the session.
-    let (initial, count) = match baton::parse(&request) {
+    let (initial, count) = match webtransport_baton::parse(request.uri()) {
         Ok(v) => v,
         Err(err) => {
             log::info!("invalid request: {}", err);
@@ -88,7 +85,7 @@ async fn run_conn(conn: quinn::Connecting) -> anyhow::Result<()> {
     log::info!("accepted session");
 
     // Run the baton code, creating the initial batons.
-    baton::run(session, Some(initial), count).await?;
+    webtransport_baton::run(session, Some(initial), count).await?;
 
     log::info!("finished baton successfully!");
 

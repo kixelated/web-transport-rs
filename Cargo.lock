@@ -1387,10 +1387,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "webtransport-baton"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bytes",
+ "http",
+ "log",
+ "rand",
+ "tokio",
+ "webtransport-generic",
+]
+
+[[package]]
 name = "webtransport-generic"
 version = "0.3.0"
 dependencies = [
  "bytes",
+ "tokio",
 ]
 
 [[package]]
@@ -1416,11 +1430,11 @@ dependencies = [
  "log",
  "quinn",
  "quinn-proto",
- "rand",
  "rcgen",
  "rustls",
  "thiserror",
  "tokio",
+ "webtransport-baton",
  "webtransport-generic",
  "webtransport-proto",
 ]

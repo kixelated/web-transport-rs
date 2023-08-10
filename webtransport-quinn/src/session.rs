@@ -133,7 +133,8 @@ type AcceptUni = dyn Stream<Item = Result<quinn::RecvStream, quinn::ConnectionEr
 type AcceptBi = dyn Stream<Item = Result<(quinn::SendStream, quinn::RecvStream), quinn::ConnectionError>>
     + Send;
 type PendingUni = dyn Future<Output = Result<(StreamUni, quinn::RecvStream), SessionError>> + Send;
-type PendingBi = dyn Future<Output = Result<Option<(SendStream, RecvStream)>, SessionError>> + Send;
+type PendingBi = dyn Future<Output = Result<Option<(quinn::SendStream, quinn::RecvStream)>, SessionError>>
+    + Send;
 
 // Logic just for accepting streams, which is annoying because of the stream header.
 pub struct SessionAccept {
@@ -272,6 +273,9 @@ impl SessionAccept {
             };
 
             if let Some((send, recv)) = res {
+                // Wrap the streams in our own types for correct error codes.
+                let send = SendStream::new(send);
+                let recv = RecvStream::new(recv);
                 return Poll::Ready(Ok((send, recv)));
             }
 
@@ -284,7 +288,7 @@ impl SessionAccept {
         send: quinn::SendStream,
         mut recv: quinn::RecvStream,
         expected_session: VarInt,
-    ) -> Result<Option<(SendStream, RecvStream)>, SessionError> {
+    ) -> Result<Option<(quinn::SendStream, quinn::RecvStream)>, SessionError> {
         let typ = Self::read_varint(&mut recv).await?;
         if Frame(typ) != Frame::WEBTRANSPORT {
             return Ok(None);
@@ -295,10 +299,6 @@ impl SessionAccept {
         if session_id != expected_session {
             return Err(WebTransportError::UnknownSession.into());
         }
-
-        // Wrap the streams in our own types for correct error codes.
-        let send = SendStream::new(send);
-        let recv = RecvStream::new(recv);
 
         Ok(Some((send, recv)))
     }
@@ -342,41 +342,39 @@ impl webtransport_generic::Session for Session {
     /// Accept an incoming unidirectional stream
     ///
     /// Returning `None` implies the connection is closing or closed.
-    fn poll_accept_uni(
-        &mut self,
-        cx: &mut Context<'_>,
-    ) -> Poll<Result<Self::RecvStream, Self::Error>> {
+    fn poll_accept_uni(&self, cx: &mut Context<'_>) -> Poll<Result<Self::RecvStream, Self::Error>> {
         self.accept.lock().unwrap().poll_accept_uni(cx)
     }
 
     /// Accept an incoming bidirectional stream
     ///
     /// Returning `None` implies the connection is closing or closed.
-    fn poll_accept_bidi(
-        &mut self,
+    fn poll_accept_bi(
+        &self,
         cx: &mut Context<'_>,
     ) -> Poll<Result<(Self::SendStream, Self::RecvStream), Self::Error>> {
         self.accept.lock().unwrap().poll_accept_bi(cx)
     }
 
     /// Poll the connection to create a new bidirectional stream.
-    fn poll_open_bidi(
-        &mut self,
+    fn poll_open_bi(
+        &self,
         cx: &mut Context<'_>,
     ) -> Poll<Result<(Self::SendStream, Self::RecvStream), Self::Error>> {
         pin!(self.open_bi()).poll(cx)
     }
 
     /// Poll the connection to create a new unidirectional stream.
-    fn poll_open_uni(
-        &mut self,
-        cx: &mut Context<'_>,
-    ) -> Poll<Result<Self::SendStream, Self::Error>> {
+    fn poll_open_uni(&self, cx: &mut Context<'_>) -> Poll<Result<Self::SendStream, Self::Error>> {
         pin!(self.open_uni()).poll(cx)
     }
 
     /// Close the connection immediately
-    fn close(&mut self, code: u32, reason: &[u8]) {
+    fn close(&self, code: u32, reason: &[u8]) {
         Session::close(self, code, reason)
+    }
+
+    fn poll_closed(&self, cx: &mut Context<'_>) -> Poll<Self::Error> {
+        pin!(self.closed()).poll(cx)
     }
 }
