@@ -4,6 +4,8 @@ use std::{collections::HashMap, fmt};
 
 use anyhow::Context;
 use rand::Rng;
+
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::task::JoinSet;
 
 use webtransport_generic::{RecvStream, SendStream, Session};
