@@ -9,14 +9,15 @@ version = "0.1.0"
 edition = "2021"
 
 keywords = ["quic", "http3", "webtransport"]
-categories = ["multimedia", "network-programming", "web-programming"]
+categories = ["network-programming", "web-programming"]
 
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+webtransport-generic = { path = "../webtransport-generic", version = "0.5" }
+
 bytes = "1"
-webtransport-generic = { path = "../webtransport-generic", version = "0.3" }
 anyhow = "1"
 rand = "0.8"
 tokio = { version = "1.27", features = ["full"] }
