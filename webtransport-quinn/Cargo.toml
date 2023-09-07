@@ -5,7 +5,7 @@ authors = ["Luke Curley"]
 repository = "https://github.com/kixelated/webtransport-rs"
 license = "MIT"
 
-version = "0.5.1"
+version = "0.5.2"
 edition = "2021"
 
 keywords = ["quic", "http3", "webtransport"]
