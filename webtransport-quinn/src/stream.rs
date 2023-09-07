@@ -12,6 +12,7 @@ use crate::{ReadError, ReadExactError, ReadToEndError, StoppedError, StreamClose
 ///
 /// This wrapper is mainly needed for error codes, which is unfortunate.
 /// WebTransport uses u32 error codes and they're mapped in a reserved HTTP/3 error space.
+#[derive(Debug)]
 pub struct SendStream {
     stream: quinn::SendStream,
 }
@@ -109,6 +110,7 @@ impl webtransport_generic::SendStream for SendStream {
 }
 
 /// A stream that can be used to recieve bytes. See [`quinn::RecvStream`].
+#[derive(Debug)]
 pub struct RecvStream {
     inner: quinn::RecvStream,
 }
