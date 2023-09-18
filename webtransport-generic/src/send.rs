@@ -6,6 +6,7 @@ pub trait SendStream: AsyncWrite + Send + Unpin {
     fn reset(&mut self, reset_code: u32);
 
     /// Set the stream's priority relative to other streams on the same connection.
-    /// A lower value will be sent first and zero is the default value.
+    /// The **highest** priority stream with pending data will be sent first.
+    /// Zero is the default value.
     fn set_priority(&mut self, order: i32);
 }

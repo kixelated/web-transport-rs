@@ -73,14 +73,30 @@ impl Session {
     /// Open a new unidirectional stream. See [`quinn::Connection::open_uni`].
     pub async fn open_uni(&self) -> Result<SendStream, SessionError> {
         let mut send = self.conn.open_uni().await?;
+
+        // Set the stream priority to max and then write the stream header.
+        // Otherwise the application could write data with lower priority than the header, resulting in queuing.
+        // Also the header is very important for determining the session ID without reliable reset.
+        send.set_priority(i32::MAX).ok();
         Self::write_full(&mut send, &self.header_uni).await?;
+
+        // Reset the stream priority back to the default of 0.
+        send.set_priority(0).ok();
         Ok(SendStream::new(send))
     }
 
     /// Open a new bidirectional stream. See [`quinn::Connection::open_bi`].
     pub async fn open_bi(&self) -> Result<(SendStream, RecvStream), SessionError> {
         let (mut send, recv) = self.conn.open_bi().await?;
+
+        // Set the stream priority to max and then write the stream header.
+        // Otherwise the application could write data with lower priority than the header, resulting in queuing.
+        // Also the header is very important for determining the session ID without reliable reset.
+        send.set_priority(i32::MAX).ok();
         Self::write_full(&mut send, &self.header_bi).await?;
+
+        // Reset the stream priority back to the default of 0.
+        send.set_priority(0).ok();
         Ok((SendStream::new(send), RecvStream::new(recv)))
     }
 
