@@ -3,6 +3,7 @@ use std::io;
 use webtransport_proto::{ConnectRequest, ConnectResponse, VarInt};
 
 use thiserror::Error;
+use url::Url;
 
 #[derive(Error, Debug)]
 pub enum ConnectError {
@@ -87,12 +88,12 @@ impl Connect {
         Ok(())
     }
 
-    pub async fn open(conn: &quinn::Connection, uri: &http::Uri) -> Result<Self, ConnectError> {
+    pub async fn open(conn: &quinn::Connection, url: &Url) -> Result<Self, ConnectError> {
         // Create a new stream that will be used to send the CONNECT frame.
         let (mut send, mut recv) = conn.open_bi().await?;
 
         // Create a new CONNECT request that we'll send using HTTP/3
-        let request = ConnectRequest { uri: uri.clone() };
+        let request = ConnectRequest { url: url.clone() };
 
         // Encode our connect request into a buffer and write it to the stream.
         let mut buf = Vec::new();
@@ -145,8 +146,8 @@ impl Connect {
         VarInt::try_from(stream_id.into_inner()).unwrap()
     }
 
-    // The URI in the CONNECT request.
-    pub fn uri(&self) -> &http::Uri {
-        &self.request.uri
+    // The URL in the CONNECT request.
+    pub fn url(&self) -> &Url {
+        &self.request.url
     }
 }

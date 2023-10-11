@@ -24,6 +24,7 @@ http = "0.2"
 thiserror = "1"
 futures = "0.3"
 async-std = "1.11"
+url = "2"
 
 # This is just for AsyncRead/AsyncWrite and does NOT pull in anything else
 tokio = "1.29"

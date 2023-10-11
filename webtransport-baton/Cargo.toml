@@ -23,3 +23,4 @@ rand = "0.8"
 tokio = { version = "1.27", features = ["full"] }
 log = "0.4"
 http = "0.2"
+url = "2"

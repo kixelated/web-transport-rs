@@ -1,4 +1,5 @@
 use clap::Parser;
+use url::Url;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -8,7 +9,7 @@ struct Args {
         long,
         default_value = "https://localhost:4443/webtransport/devious-baton"
     )]
-    uri: http::Uri,
+    url: Url,
 }
 
 #[tokio::main]
@@ -36,10 +37,10 @@ async fn main() -> anyhow::Result<()> {
     //	Create the WebTransport URL.
     let batons = 1;
 
-    log::info!("connecting to {}", args.uri);
+    log::info!("connecting to {}", args.url);
 
-    // Connect to the given URI.
-    let session = webtransport_quinn::connect(&client, &args.uri).await?;
+    // Connect to the given URL.
+    let session = webtransport_quinn::connect(&client, &args.url).await?;
 
     // Run the baton code.
     webtransport_baton::run(session, None, batons).await?;
