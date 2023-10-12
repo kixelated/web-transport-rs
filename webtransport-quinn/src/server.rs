@@ -1,6 +1,7 @@
 use crate::{Connect, ConnectError, Session, Settings, SettingsError};
 
 use thiserror::Error;
+use url::Url;
 
 /// An error returned when receiving a new WebTransport session.
 #[derive(Error, Debug)]
@@ -25,7 +26,7 @@ pub enum ServerError {
 }
 
 /// Accept a new WebTransport session from a client.
-/// Returns a [`Request`] which is then used to accept or reject the session based on the URI.
+/// Returns a [`Request`] which is then used to accept or reject the session based on the URL.
 pub async fn accept(conn: quinn::Connection) -> Result<Request, ServerError> {
     // Perform the H3 handshake by sending/reciving SETTINGS frames.
     let settings = Settings::connect(&conn).await?;
@@ -41,7 +42,7 @@ pub async fn accept(conn: quinn::Connection) -> Result<Request, ServerError> {
     })
 }
 
-/// A mostly complete WebTransport handshake, just awaiting the server's decision on whether to accept or reject the session based on the URI.
+/// A mostly complete WebTransport handshake, just awaiting the server's decision on whether to accept or reject the session based on the URL.
 pub struct Request {
     conn: quinn::Connection,
     settings: Settings,
@@ -49,9 +50,9 @@ pub struct Request {
 }
 
 impl Request {
-    /// Returns the URI provided by the client.
-    pub fn uri(&self) -> &http::Uri {
-        self.connect.uri()
+    /// Returns the URL provided by the client.
+    pub fn url(&self) -> &Url {
+        self.connect.url()
     }
 
     /// Accept the session, returning a 200 OK.

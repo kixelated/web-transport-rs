@@ -4,21 +4,22 @@ use std::{collections::HashMap, fmt};
 
 use anyhow::Context;
 use rand::Rng;
+use url::Url;
 
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::task::JoinSet;
 
 use webtransport_generic::{RecvStream, SendStream, Session};
 
-pub fn parse(uri: &http::Uri) -> anyhow::Result<(u8, u16)> {
-    if uri.path() != "/webtransport/devious-baton" {
-        anyhow::bail!("invalid path: {}", uri.path());
+pub fn parse(url: &Url) -> anyhow::Result<(u8, u16)> {
+    if url.path() != "/webtransport/devious-baton" {
+        anyhow::bail!("invalid path: {}", url.path());
     }
 
     let mut query = HashMap::new();
 
     // Get the query string after the path.
-    if let Some(str) = uri.query() {
+    if let Some(str) = url.query() {
         // Split the query string into key-value pairs
         for part in str.split('&') {
             let (key, value) = part.split_once('=').context("failed to split")?;

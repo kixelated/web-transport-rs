@@ -5,7 +5,7 @@ authors = ["Luke Curley"]
 repository = "https://github.com/kixelated/webtransport-rs"
 license = "MIT"
 
-version = "0.5.4"
+version = "0.6.0"
 edition = "2021"
 
 keywords = ["quic", "http3", "webtransport"]
@@ -14,7 +14,7 @@ categories = ["network-programming", "web-programming"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-webtransport-proto = { path = "../webtransport-proto", version = "0.5.4" }
+webtransport-proto = { path = "../webtransport-proto", version = "0.6" }
 webtransport-generic = { path = "../webtransport-generic", version = "0.5" }
 
 quinn = "0.10"
@@ -23,17 +23,18 @@ quinn-proto = "0.10"
 http = "0.2"
 thiserror = "1"
 futures = "0.3"
-async-std = "1.11"
+async-std = "1"
+url = "2"
 
 # This is just for AsyncRead/AsyncWrite and does NOT pull in anything else
-tokio = "1.29"
+tokio = "1"
 
 [dev-dependencies]
 webtransport-baton = { path = "../webtransport-baton", version = "0.1" }
 rcgen = "0.11"
 anyhow = "1"
-tokio = { version = "1.27", features = ["full"] }
+tokio = { version = "1", features = ["full"] }
 rustls = { version = "0.21", features = ["dangerous_configuration", "quic"] }
 env_logger = "0.10"
-clap = { version = "4.3", features = ["derive"] }
+clap = { version = "4", features = ["derive"] }
 log = "0.4"

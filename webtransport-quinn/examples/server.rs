@@ -66,10 +66,10 @@ async fn run_conn(conn: quinn::Connecting) -> anyhow::Result<()> {
 
     // Perform the WebTransport handshake.
     let request = webtransport_quinn::accept(conn).await?;
-    log::info!("received WebTransport request: {}", request.uri());
+    log::info!("received WebTransport request: {}", request.url());
 
-    // Parse the request URI to decide if we should accept the session.
-    let (initial, count) = match webtransport_baton::parse(request.uri()) {
+    // Parse the request URL to decide if we should accept the session.
+    let (initial, count) = match webtransport_baton::parse(request.url()) {
         Ok(v) => v,
         Err(err) => {
             log::info!("invalid request: {}", err);

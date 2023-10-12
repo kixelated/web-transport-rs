@@ -5,7 +5,7 @@ authors = ["Luke Curley"]
 repository = "https://github.com/kixelated/webtransport-rs"
 license = "MIT"
 
-version = "0.5.4"
+version = "0.6.0"
 edition = "2021"
 
 keywords = ["quic", "http3", "webtransport"]
@@ -17,3 +17,4 @@ categories = ["network-programming", "web-programming"]
 http = "0.2"
 bytes = "1"
 thiserror = "1"
+url = "2"
