@@ -5,7 +5,7 @@ authors = ["Luke Curley"]
 repository = "https://github.com/kixelated/webtransport-rs"
 license = "MIT"
 
-version = "0.5.4"
+version = "0.6.0"
 edition = "2021"
 
 keywords = ["quic", "http3", "webtransport"]
@@ -14,7 +14,7 @@ categories = ["network-programming", "web-programming"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-webtransport-proto = { path = "../webtransport-proto", version = "0.5.4" }
+webtransport-proto = { path = "../webtransport-proto", version = "0.6" }
 webtransport-generic = { path = "../webtransport-generic", version = "0.5" }
 
 quinn = "0.10"
