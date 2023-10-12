@@ -1443,7 +1443,6 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "bytes",
- "http",
  "log",
  "rand",
  "tokio",
@@ -1455,7 +1454,6 @@ dependencies = [
 name = "webtransport-generic"
 version = "0.5.0"
 dependencies = [
- "bytes",
  "tokio",
 ]
 
