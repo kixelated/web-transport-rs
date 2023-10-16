@@ -17,7 +17,6 @@ categories = ["network-programming", "web-programming"]
 [dependencies]
 webtransport-generic = { path = "../webtransport-generic", version = "0.5" }
 
-bytes = "1"
 anyhow = "1"
 rand = "0.8"
 tokio = { version = "1", features = ["full"] }
