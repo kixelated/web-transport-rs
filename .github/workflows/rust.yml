@@ -14,6 +14,8 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - uses: actions/checkout@v3
+
       # Install Rust with clippy/rustfmt
       - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
