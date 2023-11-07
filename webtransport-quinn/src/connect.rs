@@ -61,11 +61,16 @@ impl Connect {
                 Ok(req) => req,
 
                 // We didn't have enough data in the buffer, so we'll read more and try again.
-                Err(webtransport_proto::ConnectError::UnexpectedEnd) => continue,
+                Err(webtransport_proto::ConnectError::UnexpectedEnd) => {
+                    log::debug!("buffering CONNECT request");
+                    continue;
+                }
 
                 // Some other fatal error.
                 Err(e) => return Err(e.into()),
             };
+
+            log::debug!("received CONNECT request: {:?}", request);
 
             // The request was successfully decoded, so we can send a response.
             return Ok(Self {
@@ -79,6 +84,8 @@ impl Connect {
     // Called by the server to send a response to the client.
     pub async fn respond(&mut self, status: http::StatusCode) -> Result<(), quinn::WriteError> {
         let resp = ConnectResponse { status };
+
+        log::debug!("sending CONNECT response: {:?}", resp);
 
         let mut buf = Vec::new();
         resp.encode(&mut buf);
@@ -94,6 +101,8 @@ impl Connect {
 
         // Create a new CONNECT request that we'll send using HTTP/3
         let request = ConnectRequest { url: url.clone() };
+
+        log::debug!("sending CONNECT request: {:?}", request);
 
         // Encode our connect request into a buffer and write it to the stream.
         let mut buf = Vec::new();
@@ -119,11 +128,16 @@ impl Connect {
                 Ok(res) => res,
 
                 // We didn't have enough data in the buffer, so we'll read more and try again.
-                Err(webtransport_proto::ConnectError::UnexpectedEnd) => continue,
+                Err(webtransport_proto::ConnectError::UnexpectedEnd) => {
+                    log::debug!("buffering CONNECT response");
+                    continue;
+                }
 
                 // Some other fatal error.
                 Err(e) => return Err(e.into()),
             };
+
+            log::debug!("received CONNECT response: {:?}", res);
 
             // Throw an error if we didn't get a 200 OK.
             if res.status != http::StatusCode::OK {

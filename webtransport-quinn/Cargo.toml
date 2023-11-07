@@ -25,6 +25,7 @@ thiserror = "1"
 futures = "0.3"
 async-std = "1"
 url = "2"
+log = "0.4"
 
 # This is just for AsyncRead/AsyncWrite and does NOT pull in anything else
 tokio = "1"
@@ -37,4 +38,3 @@ tokio = { version = "1", features = ["full"] }
 rustls = { version = "0.21", features = ["dangerous_configuration", "quic"] }
 env_logger = "0.10"
 clap = { version = "4", features = ["derive"] }
-log = "0.4"
