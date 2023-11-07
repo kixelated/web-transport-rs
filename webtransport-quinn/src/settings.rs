@@ -63,6 +63,8 @@ impl Settings {
                 Err(e) => return Err(e.into()),
             };
 
+            log::debug!("received SETTINGS frame: {:?}", settings);
+
             if settings.supports_webtransport() == 0 {
                 return Err(SettingsError::WebTransportUnsupported);
             }
@@ -74,6 +76,8 @@ impl Settings {
     async fn open(conn: &quinn::Connection) -> Result<quinn::SendStream, SettingsError> {
         let mut settings = webtransport_proto::Settings::default();
         settings.enable_webtransport(1);
+
+        log::debug!("sending SETTINGS frame: {:?}", settings);
 
         let mut buf = Vec::new();
         settings.encode(&mut buf);

@@ -248,7 +248,10 @@ impl SessionAccept {
                 StreamUni::QPACK_ENCODER => {
                     self.qpack_encoder = Some(recv);
                 }
-                _ => {} // ignore unknown streams
+                _ => {
+                    // ignore unknown streams
+                    log::debug!("ignoring unknown unidirectional stream: {:?}", typ);
+                }
             }
         }
     }
@@ -314,6 +317,7 @@ impl SessionAccept {
     ) -> Result<Option<(quinn::SendStream, quinn::RecvStream)>, SessionError> {
         let typ = Self::read_varint(&mut recv).await?;
         if Frame(typ) != Frame::WEBTRANSPORT {
+            log::debug!("ignoring unknown bidirectional stream: {:?}", typ);
             return Ok(None);
         }
 
