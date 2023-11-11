@@ -8,7 +8,9 @@ use std::{
     task::{ready, Context, Poll},
 };
 
+use bytes::Bytes;
 use futures::stream::{FuturesUnordered, Stream, StreamExt};
+use quinn::SendDatagramError;
 
 use crate::{Connect, RecvStream, SendStream, SessionError, Settings, WebTransportError};
 
@@ -101,15 +103,15 @@ impl Session {
     }
 
     pub async fn read_datagram(&self) {
-        unimplemented!("datagrams")
+      self.conn.read_datagram();
     }
 
-    pub async fn send_datagram(&self) {
-        unimplemented!("datagrams")
+    pub async fn send_datagram(&self, data: Bytes) -> Result<(), SendDatagramError> {
+        self.conn.send_datagram(data)
     }
 
     pub fn max_datagram_size(&self) {
-        unimplemented!("datagrams")
+        self.conn.max_datagram_size();
     }
 
     /// Immediately close the connection with an error code and reason. See [`quinn::Connection::close`].
