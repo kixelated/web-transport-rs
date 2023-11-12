@@ -102,6 +102,26 @@ impl Session {
         Ok((SendStream::new(send), RecvStream::new(recv)))
     }
 
+    /// Asynchronously receives an application datagram from the remote peer.
+    ///
+    /// This method is used to receive an application datagram sent by the remote
+    /// peer over the connection.
+    /// It waits for a datagram to become available and returns the received [`Datagram`].
+    /// 
+    /// # Example
+    ///
+    /// ```no_run
+    /// # use webtransport_quinn::Session;
+    /// # use quinn::Connecting
+    /// # use anyhow::Result;
+    /// # async fn run(connection: Connecting) -> Result<()> {
+    /// # let conn = &connection.await?;
+    /// # let req = webtransport_quinn::accept(conn.clone()).await?;
+    /// # let session = request.ok().await?;
+    /// let datagram = session.read_datagram().await?;
+    /// # Ok(())
+    /// # }
+    /// ```
     pub async fn read_datagram(&self) -> Result<Datagram, ErrorCode> {
         let datagram = self.conn.read_datagram()
             .await

@@ -2,7 +2,8 @@ use bytes::{Bytes, Buf};
 use webtransport_proto::VarInt;
 use thiserror::Error;
 
-///HTTP3 Datagram
+/// an HTTP/3 Datagram
+/// See: <https://www.rfc-editor.org/rfc/rfc9297#section-2.1>
 pub struct Datagram<B = Bytes> {
     q_stream_id: VarInt,
     payload: B,
@@ -20,7 +21,7 @@ where
         }
     }
 
-    ///Reads a [`Datagram`] from a HTTP3 datagram
+    ///Reads a [`Datagram`] from a HTTP/3 datagram
     pub fn read(mut buf: B) -> Result<Self, ErrorCode> {
 
         // a variable length integer that contains the value
@@ -54,7 +55,7 @@ where
 /// Error codes for [`Datagram`] operations
 #[derive(Debug, Error)]
 pub enum ErrorCode{
-    ///HTTP3_Datagram_Error
+    ///HTTP/3_Datagram_Error
     #[error("HTTP3_DATAGRAM Error")]
     DatagramError,
 }
