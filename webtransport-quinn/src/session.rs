@@ -130,11 +130,17 @@ impl Session {
         quic_datagram
     }
 
+    /// Sends an application datagram to the remote peer.
+    ///
+    /// This method is used to send an application datagram to the remote peer
+    /// over the connection.
     pub async fn send_datagram(&self, q_stream_id: VarInt, data: Bytes) -> Result<(), SendDatagramError> {
         let datagram = Datagram::new(q_stream_id, data);
         self.conn.send_datagram(datagram.payload().clone())
     }
 
+    /// Computes the maximum size of datagrams that may be passed to
+    /// [`send_datagram`](Self::send_datagram).
     pub fn max_datagram_size(&self) {
         self.conn.max_datagram_size();
     }
