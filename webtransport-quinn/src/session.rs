@@ -12,7 +12,7 @@ use bytes::Bytes;
 use futures::stream::{FuturesUnordered, Stream, StreamExt};
 use quinn::SendDatagramError;
 
-use crate::{Connect, RecvStream, SendStream, SessionError, Settings, WebTransportError};
+use crate::{Connect, RecvStream, SendStream, SessionError, Settings, WebTransportError, Datagram, ErrorCode};
 
 use webtransport_proto::{Frame, StreamUni, VarInt};
 
@@ -102,12 +102,17 @@ impl Session {
         Ok((SendStream::new(send), RecvStream::new(recv)))
     }
 
-    pub async fn read_datagram(&self) {
-      self.conn.read_datagram();
+    pub async fn read_datagram(&self) -> Result<Datagram, ErrorCode> {
+        let datagram = self.conn.read_datagram()
+            .await
+            .map_err(|_| ErrorCode::DatagramError)?;
+        let quic_datagram = Datagram::read(datagram);
+        quic_datagram
     }
 
-    pub async fn send_datagram(&self, data: Bytes) -> Result<(), SendDatagramError> {
-        self.conn.send_datagram(data)
+    pub async fn send_datagram(&self, q_stream_id: VarInt, data: Bytes) -> Result<(), SendDatagramError> {
+        let datagram = Datagram::new(q_stream_id, data);
+        self.conn.send_datagram(datagram.payload().clone())
     }
 
     pub fn max_datagram_size(&self) {
