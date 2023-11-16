@@ -47,7 +47,7 @@ async fn main() -> anyhow::Result<()> {
         tokio::spawn(async move {
             let err = run_conn(conn).await;
             if let Err(err) = err {
-                log::error!("connection failed: {}", err)
+                log::error!("connection Ffailed: {}", err)
             }
         });
     }

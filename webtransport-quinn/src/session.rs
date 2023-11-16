@@ -134,9 +134,9 @@ impl Session {
     ///
     /// This method is used to send an application datagram to the remote peer
     /// over the connection.
-    pub async fn send_datagram(&self, q_stream_id: VarInt, data: Bytes) -> Result<(), SendDatagramError> {
-        let datagram = Datagram::new(q_stream_id, data);
-        self.conn.send_datagram(datagram.payload().clone())
+    pub async fn send_datagram(&self, data: Bytes) -> Result<(), SendDatagramError> {
+        //let datagram = Datagram::new(q_stream_id, data);
+        self.conn.send_datagram(data)
     }
 
     /// Computes the maximum size of datagrams that may be passed to
