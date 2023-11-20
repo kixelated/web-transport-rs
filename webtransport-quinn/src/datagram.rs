@@ -4,6 +4,7 @@ use thiserror::Error;
 
 /// an HTTP/3 Datagram
 /// See: <https://www.rfc-editor.org/rfc/rfc9297#section-2.1>
+#[derive(Debug)]
 pub struct Datagram<B = Bytes> {
     q_stream_id: VarInt,
     payload: B,
