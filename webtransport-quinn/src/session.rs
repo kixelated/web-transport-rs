@@ -12,7 +12,7 @@ use bytes::Bytes;
 use futures::stream::{FuturesUnordered, Stream, StreamExt};
 use quinn::SendDatagramError;
 
-use crate::{Connect, RecvStream, SendStream, SessionError, Settings, WebTransportError, Datagram, ErrorCode};
+use crate::{Connect, RecvStream, SendStream, SessionError, Settings, WebTransportError, Datagram};
 
 use webtransport_proto::{Frame, StreamUni, VarInt};
 
@@ -107,7 +107,7 @@ impl Session {
     /// This method is used to receive an application datagram sent by the remote
     /// peer over the connection.
     /// It waits for a datagram to become available and returns the received [`Datagram`].
-    /// 
+    ///
     /// # Example
     ///
     /// ```no_run
@@ -122,21 +122,18 @@ impl Session {
     /// # Ok(())
     /// # }
     /// ```
-    pub async fn read_datagram(&self) -> Result<Datagram, ErrorCode> {
-        let datagram = self.conn.read_datagram()
-            .await
-            .map_err(|_| ErrorCode::DatagramError)?;
-        let quic_datagram = Datagram::read(datagram);
-        quic_datagram
+    pub async fn read_datagram(&self) -> Result<Bytes, SessionError> {
+        let datagram = self.conn.read_datagram().await?;
+        Ok(datagram)
     }
 
     /// Sends an application datagram to the remote peer.
     ///
     /// This method is used to send an application datagram to the remote peer
     /// over the connection.
-    pub async fn send_datagram(&self, data: Bytes) -> Result<(), SendDatagramError> {
-        //let datagram = Datagram::new(q_stream_id, data);
-        self.conn.send_datagram(data)
+    pub async fn send_datagram(&self, data: Bytes, stream_id: VarInt) -> Result<(), SendDatagramError> {
+        let datagram = Datagram::new(stream_id, data);
+        self.conn.send_datagram(datagram.payload().clone())
     }
 
     /// Computes the maximum size of datagrams that may be passed to
