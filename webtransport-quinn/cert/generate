@@ -1,0 +1,12 @@
+#/bin/bash
+set -euo pipefail
+cd "$(dirname "${BASH_SOURCE[0]}")"
+
+# Generate a self-signed certificate for localhost.
+# This is only valid for 10 days so we can use serverCertificateHashes to avoid a CA (bugged).
+# https://developer.mozilla.org/en-US/docs/Web/API/WebTransport/WebTransport#servercertificatehashes
+openssl ecparam -genkey -name prime256v1 -out localhost.key
+openssl req -x509 -sha256 -nodes -days 10 -key localhost.key -out localhost.crt -config localhost.conf -extensions 'v3_req'
+
+# Generate a hex-encoded (easy to parse) SHA-256 hash of the certificate.
+openssl x509 -in localhost.crt -outform der | openssl dgst -sha256 -binary | xxd -p -c 256 > localhost.hex
