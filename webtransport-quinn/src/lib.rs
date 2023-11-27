@@ -25,18 +25,18 @@
 
 // External
 mod client;
+mod datagram;
 mod error;
 mod server;
 mod session;
 mod stream;
-mod datagram;
 
 pub use client::*;
+pub use datagram::*;
 pub use error::*;
 pub use server::*;
 pub use session::*;
 pub use stream::*;
-pub use datagram::*;
 
 // Internal
 mod connect;
