@@ -10,9 +10,8 @@ use std::{
 
 use bytes::Bytes;
 use futures::stream::{FuturesUnordered, Stream, StreamExt};
-use quinn::SendDatagramError;
 
-use crate::{Connect, RecvStream, SendStream, SessionError, Settings, WebTransportError, Datagram};
+use crate::{Connect, Datagram, RecvStream, SendStream, SessionError, Settings, WebTransportError};
 
 use webtransport_proto::{Frame, StreamUni, VarInt};
 
@@ -131,15 +130,22 @@ impl Session {
     ///
     /// This method is used to send an application datagram to the remote peer
     /// over the connection.
-    pub async fn send_datagram(&self, data: Bytes, stream_id: VarInt) -> Result<(), SendDatagramError> {
+    pub async fn send_datagram(&self, data: Bytes, stream_id: VarInt) -> Result<(), SessionError> {
         let datagram = Datagram::new(stream_id, data);
-        self.conn.send_datagram(datagram.payload().clone())
+        let send_datagram = self.conn.send_datagram(datagram.payload().clone());
+        match send_datagram {
+            Ok(_) => Ok(()),
+            Err(err) => Err(SessionError::SendDatagramError(err)),
+        }
     }
 
     /// Computes the maximum size of datagrams that may be passed to
     /// [`send_datagram`](Self::send_datagram).
     pub fn max_datagram_size(&self) {
-        self.conn.max_datagram_size();
+        let session_id = VarInt::default();
+        self.conn
+            .max_datagram_size()
+            .map(|max_datagram_size| max_datagram_size - session_id.size());
     }
 
     /// Immediately close the connection with an error code and reason. See [`quinn::Connection::close`].
