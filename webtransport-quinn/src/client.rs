@@ -1,5 +1,5 @@
-use async_std::net::ToSocketAddrs;
 use thiserror::Error;
+use tokio::net::lookup_host;
 use url::Url;
 
 use crate::{Connect, ConnectError, Session, Settings, SettingsError};
@@ -45,7 +45,7 @@ pub async fn connect(client: &quinn::Endpoint, url: &Url) -> Result<Session, Cli
     let port = url.port().unwrap_or(443);
 
     // Look up the DNS entry.
-    let mut remotes = match (host.as_str(), port).to_socket_addrs().await {
+    let mut remotes = match lookup_host((host.clone(), port)).await {
         Ok(remotes) => remotes,
         Err(_) => return Err(ClientError::InvalidDnsName(host)),
     };
