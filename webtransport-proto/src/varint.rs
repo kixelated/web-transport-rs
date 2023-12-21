@@ -25,7 +25,7 @@ impl VarInt {
         Self(x as u64)
     }
 
-    /// Succeeds iff `x` < 2^62
+    /// Succeeds if `x` < 2^62
     pub fn from_u64(x: u64) -> Result<Self, VarIntBoundsExceeded> {
         if x < 2u64.pow(62) {
             Ok(Self(x))

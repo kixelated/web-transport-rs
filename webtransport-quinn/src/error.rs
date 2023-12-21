@@ -8,6 +8,9 @@ pub enum SessionError {
 
     #[error("webtransport error: {0}")]
     WebTransportError(#[from] WebTransportError),
+
+    #[error("send datagram error: {0}")]
+    SendDatagramError(#[from] quinn::SendDatagramError),
 }
 
 /// An error that can occur when reading/writing the WebTransport stream header.
@@ -191,3 +194,29 @@ impl From<quinn::StoppedError> for StoppedError {
         }
     }
 }
+
+// #[derive(Clone, Error, Debug)]
+// pub enum SendDatagramError {
+//     #[error("Unsupported peer")]
+//     UnsupportedPeer,
+
+//     #[error("Datagram support Disabled by peer")]
+//     DatagramSupportDisabled,
+
+//     #[error("Datagram Too large")]
+//     TooLarge,
+
+//     #[error("Session errorr: {0}")]
+//     SessionError(#[from] SessionError),
+// }
+
+// impl From<quinn::SendDatagramError> for SendDatagramError {
+//     fn from(value: quinn::SendDatagramError) -> Self {
+//          match value {
+//              quinn::SendDatagramError::UnsupportedByPeer => SendDatagramError::UnsupportedPeer,
+//              quinn::SendDatagramError::Disabled => SendDatagramError::DatagramSupportDisabled,
+//              quinn::SendDatagramError::TooLarge => SendDatagramError::TooLarge,
+//              quinn::SendDatagramError::ConnectionLost(e) => SendDatagramError::SessionError(e.into()),
+//          }
+//     }
+// }

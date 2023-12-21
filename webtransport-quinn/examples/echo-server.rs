@@ -8,6 +8,7 @@ use anyhow::Context;
 
 use clap::Parser;
 use rustls::Certificate;
+use webtransport_quinn::Session;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -114,25 +115,39 @@ async fn run_conn(conn: quinn::Connecting) -> anyhow::Result<()> {
     let session = request.ok().await.context("failed to accept session")?;
     log::info!("accepted session");
 
-    // Wait for a bidirectional stream.
-    let (mut send, mut recv) = session
-        .accept_bi()
-        .await
-        .context("failed to accept stream")?;
-
-    log::info!("accepted stream");
-
-    // Read the message and echo it back.
-    let msg = recv.read_to_end(1024).await?;
-    log::info!("recv: {}", String::from_utf8_lossy(&msg));
-
-    send.write_all(&msg).await?;
-    log::info!("send: {}", String::from_utf8_lossy(&msg));
-
-    log::info!("echo successfully!");
-
-    // Lazy, but don't close the connection immediately.
-    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+    // Run the session
+    if let Err(err) = run_session(session).await {
+        log::info!("closing session: {}", err);
+    }
 
     Ok(())
+}
+
+async fn run_session(session: Session) -> anyhow::Result<()> {
+    loop {
+        // Wait for a bidirectional stream or datagram.
+        tokio::select! {
+            res = session.accept_bi() => {
+                let (mut send, mut recv) = res?;
+                log::info!("accepted stream");
+
+                // Read the message and echo it back.
+                let msg = recv.read_to_end(1024).await?;
+                log::info!("recv: {}", String::from_utf8_lossy(&msg));
+
+                send.write_all(&msg).await?;
+                log::info!("send: {}", String::from_utf8_lossy(&msg));
+            },
+            res = session.read_datagram() => {
+                let msg = res?;
+                log::info!("accepted datagram");
+                log::info!("recv: {}", String::from_utf8_lossy(&msg));
+
+                session.send_datagram(msg.clone()).await?;
+                log::info!("send: {}", String::from_utf8_lossy(&msg));
+            },
+        };
+
+        log::info!("echo successful!");
+    }
 }
