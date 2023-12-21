@@ -10,6 +10,7 @@ for (let c = 0; c < fingerprintHex.length - 1; c += 2) {
 const params = new URLSearchParams(window.location.search)
 
 const url = params.get("url") || "https://localhost:4443"
+const datagram = params.get("datagram") || false
 
 function log(msg) {
     const element = document.createElement("div");
@@ -30,28 +31,42 @@ async function run() {
 
     log("connected");
 
-    // Create a bidirectional stream
-    const stream = await transport.createBidirectionalStream();
+    let writer;
+    let reader;
 
-    log("created stream");
+    if (!datagram) {
+        // Create a bidirectional stream
+        const stream = await transport.createBidirectionalStream();
+        log("created stream");
 
-    // Write a message to it
+        writer = stream.writable.getWriter();
+        reader = stream.readable.getReader();
+    } else {
+        log("using datagram");
+
+        // Create a datagram
+        writer = transport.datagrams.writable.getWriter();
+        reader = transport.datagrams.readable.getReader();
+    }
+
+    // Create a message
     const msg = 'Hello, world!';
-    const writer = stream.writable.getWriter();
-    await writer.write(new TextEncoder().encode(msg));
+    const encoded = new TextEncoder().encode(msg);
+
+    await writer.write(encoded);
     await writer.close();
     writer.releaseLock();
 
     log("send: " + msg);
 
     // Read a message from it
-    const reader = stream.readable.getReader();
+    // TODO handle partial reads
     const { value } = await reader.read();
 
     const recv = new TextDecoder().decode(value);
     log("recv: " + recv);
 
-    await transport.close();
+    transport.close();
     log("closed");
 }
 

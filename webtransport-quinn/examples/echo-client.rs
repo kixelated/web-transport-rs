@@ -58,13 +58,17 @@ async fn main() -> anyhow::Result<()> {
     // Connect to the given URL.
     let session = webtransport_quinn::connect(&client, &args.url).await?;
 
+    log::info!("connected");
+
     // Create a bidirectional stream.
     let (mut send, mut recv) = session.open_bi().await?;
+
+    log::info!("created stream");
 
     // Send a message.
     let msg = "hello world".to_string();
     send.write_all(msg.as_bytes()).await?;
-    log::info!("send: {}", msg);
+    log::info!("sent: {}", msg);
 
     // Read back the message.
     let msg = recv.read_to_end(1024).await?;

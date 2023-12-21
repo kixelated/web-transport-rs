@@ -8,10 +8,10 @@ use std::{
     task::{ready, Context, Poll},
 };
 
-use bytes::Bytes;
+use bytes::{Bytes, BytesMut};
 use futures::stream::{FuturesUnordered, Stream, StreamExt};
 
-use crate::{Connect, Datagram, RecvStream, SendStream, SessionError, Settings, WebTransportError};
+use crate::{Connect, RecvStream, SendStream, SessionError, Settings, WebTransportError};
 
 use webtransport_proto::{Frame, StreamUni, VarInt};
 
@@ -28,17 +28,22 @@ use webtransport_proto::{Frame, StreamUni, VarInt};
 pub struct Session {
     conn: quinn::Connection,
 
+    // The session ID, as determined by the stream ID of the connect request.
+    session_id: VarInt,
+
     // The accept logic is stateful, so use an Arc<Mutex> to share it.
     accept: Arc<Mutex<SessionAccept>>,
 
     // Cache the headers in front of each stream we open.
     header_uni: Vec<u8>,
     header_bi: Vec<u8>,
+    header_datagram: Vec<u8>,
 }
 
 impl Session {
     pub(crate) fn new(conn: quinn::Connection, settings: Settings, connect: Connect) -> Self {
         // The session ID is the stream ID of the CONNECT request.
+        // TODO I think this might need to be divided by 4, but I'm not sure.
         let session_id = connect.session_id();
 
         // Cache the tiny header we write in front of each stream we open.
@@ -50,14 +55,19 @@ impl Session {
         Frame::WEBTRANSPORT.encode(&mut header_bi);
         session_id.encode(&mut header_bi);
 
+        let mut header_datagram = Vec::new();
+        session_id.encode(&mut header_datagram);
+
         // Accept logic is stateful, so use an Arc<Mutex> to share it.
         let accept = SessionAccept::new(conn.clone(), settings, connect);
 
         Self {
             conn,
             accept: Arc::new(Mutex::new(accept)),
+            session_id,
             header_uni,
             header_bi,
+            header_datagram,
         }
     }
 
@@ -106,46 +116,47 @@ impl Session {
     /// This method is used to receive an application datagram sent by the remote
     /// peer over the connection.
     /// It waits for a datagram to become available and returns the received [`Datagram`].
-    ///
-    /// # Example
-    ///
-    /// ```no_run
-    /// # use webtransport_quinn::Session;
-    /// # use quinn::Connecting
-    /// # use anyhow::Result;
-    /// # async fn run(connection: Connecting) -> Result<()> {
-    /// # let conn = &connection.await?;
-    /// # let req = webtransport_quinn::accept(conn.clone()).await?;
-    /// # let session = request.ok().await?;
-    /// let datagram = session.read_datagram().await?;
-    /// # Ok(())
-    /// # }
-    /// ```
     pub async fn read_datagram(&self) -> Result<Bytes, SessionError> {
-        let datagram = self.conn.read_datagram().await?;
+        let mut datagram = self.conn.read_datagram().await?;
+
+        let mut cursor = Cursor::new(&datagram);
+
+        // We have to check and strip the session ID from the datagram.
+        let session_id = VarInt::decode(&mut cursor)
+            .map_err(|_| WebTransportError::ReadError(quinn::ReadExactError::FinishedEarly))?;
+        if session_id != self.session_id {
+            return Err(WebTransportError::UnknownSession.into());
+        }
+
+        // Return the datagram without the session ID.
+        let datagram = datagram.split_off(cursor.position() as usize);
+
         Ok(datagram)
     }
 
     /// Sends an application datagram to the remote peer.
     ///
-    /// This method is used to send an application datagram to the remote peer
-    /// over the connection.
-    pub async fn send_datagram(&self, data: Bytes, stream_id: VarInt) -> Result<(), SessionError> {
-        let datagram = Datagram::new(stream_id, data);
-        let send_datagram = self.conn.send_datagram(datagram.payload().clone());
-        match send_datagram {
-            Ok(_) => Ok(()),
-            Err(err) => Err(SessionError::SendDatagramError(err)),
-        }
+    /// Datagrams are unreliable and may be dropped or delivered out of order.
+    /// The data must be smaller than [`max_datagram_size`](Self::max_datagram_size).
+    pub async fn send_datagram(&self, data: Bytes) -> Result<(), SessionError> {
+        // Unfortunately, we need to allocate/copy each datagram because of the Quinn API.
+        // Pls go +1 if you care: https://github.com/quinn-rs/quinn/issues/1724
+        let mut buf = BytesMut::with_capacity(self.header_datagram.len() + data.len());
+
+        // Prepend the datagram with the header indicating the session ID.
+        buf.extend_from_slice(&self.header_datagram);
+        buf.extend_from_slice(&data);
+
+        self.conn.send_datagram(buf.into())?;
+        Ok(())
     }
 
     /// Computes the maximum size of datagrams that may be passed to
     /// [`send_datagram`](Self::send_datagram).
-    pub fn max_datagram_size(&self) {
-        let session_id = VarInt::default();
+    pub fn max_datagram_size(&self) -> Option<usize> {
         self.conn
             .max_datagram_size()
-            .map(|max_datagram_size| max_datagram_size - session_id.size());
+            .map(|mtu| mtu.saturating_sub(self.header_datagram.len()))
     }
 
     /// Immediately close the connection with an error code and reason. See [`quinn::Connection::close`].
