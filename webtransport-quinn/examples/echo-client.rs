@@ -70,6 +70,9 @@ async fn main() -> anyhow::Result<()> {
     send.write_all(msg.as_bytes()).await?;
     log::info!("sent: {}", msg);
 
+    // Shut down the send stream.
+    send.finish().await?;
+
     // Read back the message.
     let msg = recv.read_to_end(1024).await?;
     log::info!("recv: {}", String::from_utf8_lossy(&msg));
