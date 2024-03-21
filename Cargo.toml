@@ -1,8 +1,9 @@
 [workspace]
 members = [
-	"webtransport-quinn",
-	"webtransport-proto",
-	"webtransport-generic",
-	"webtransport-baton",
+    "quictransport-quinn",
+    "webtransport-quinn",
+    "webtransport-proto",
+    "webtransport-generic",
+    "webtransport-baton",
 ]
 resolver = "2"

@@ -569,6 +569,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "quictransport-quinn"
+version = "0.7.0"
+dependencies = [
+ "quinn",
+ "tokio",
+ "webtransport-generic",
+ "webtransport-proto",
+]
+
+[[package]]
 name = "quinn"
 version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
