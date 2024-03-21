@@ -143,7 +143,7 @@ async fn run_session(session: Session) -> anyhow::Result<()> {
                 log::info!("accepted datagram");
                 log::info!("recv: {}", String::from_utf8_lossy(&msg));
 
-                session.send_datagram(msg.clone()).await?;
+                session.send_datagram(msg.clone())?;
                 log::info!("send: {}", String::from_utf8_lossy(&msg));
             },
         };
