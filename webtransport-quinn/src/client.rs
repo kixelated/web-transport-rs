@@ -10,19 +10,19 @@ pub enum ClientError {
     #[error("unexpected end of stream")]
     UnexpectedEnd,
 
-    #[error("connection error")]
+    #[error("connection error: {0}")]
     Connection(#[from] quinn::ConnectionError),
 
-    #[error("failed to write")]
+    #[error("failed to write: {0}")]
     WriteError(#[from] quinn::WriteError),
 
-    #[error("failed to read")]
+    #[error("failed to read: {0}")]
     ReadError(#[from] quinn::ReadError),
 
-    #[error("failed to exchange h3 settings")]
+    #[error("failed to exchange h3 settings: {0}")]
     SettingsError(#[from] SettingsError),
 
-    #[error("failed to exchange h3 connect")]
+    #[error("failed to exchange h3 connect: {0}")]
     ConnectError(#[from] ConnectError),
 
     #[error("quic error: {0}")]
