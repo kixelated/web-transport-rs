@@ -1,7 +1,7 @@
 use std::error::Error;
-use std::future::Future;
+use std::future::{poll_fn, Future};
 
-use std::pin::Pin;
+use std::fmt::Debug;
 use std::task::{Context, Poll};
 
 use super::{RecvStream, SendStream};
@@ -10,7 +10,7 @@ use super::{RecvStream, SendStream};
 ///
 /// The Session can be cloned to produce multiple handles and each method is &self, mirroing the Quinn API.
 /// This is overly permissive, but otherwise Quinn would need an extra Arc<Mutex<Session>> wrapper which would hurt performance.
-pub trait Session: Clone + Sync + Send + Unpin + Sized + 'static {
+pub trait Session: Clone + Send + Sync + Unpin {
     type SendStream: SendStream;
     type RecvStream: RecvStream;
     type Error: SessionError;
@@ -43,129 +43,51 @@ pub trait Session: Clone + Sync + Send + Unpin + Sized + 'static {
     /// Check if the connection is closed, returing the error if it is.
     fn poll_closed(&self, cx: &mut Context<'_>) -> Poll<Self::Error>;
 
+    /// Check if there's a new datagram to read.
+    fn poll_recv_datagram(&self, cx: &mut Context<'_>) -> Poll<Result<bytes::Bytes, Self::Error>>;
+
+    /// Send a datagram.
+    fn send_datagram(&self, payload: bytes::Bytes) -> Result<(), Self::Error>;
+
     /// A future that accepts an incoming unidirectional stream.
-    fn accept_uni(&self) -> AcceptUni<Self> {
-        AcceptUni {
-            session: self.clone(),
-        }
+    fn accept_uni(&self) -> impl Future<Output = Result<Self::RecvStream, Self::Error>> + Send {
+        poll_fn(|cx| self.poll_accept_uni(cx))
     }
 
     /// A future that accepts an incoming bidirectional stream.
-    fn accept_bi(&self) -> AcceptBi<Self> {
-        AcceptBi {
-            session: self.clone(),
-        }
+    fn accept_bi(
+        &self,
+    ) -> impl Future<Output = Result<(Self::SendStream, Self::RecvStream), Self::Error>> + Send
+    {
+        poll_fn(|cx| self.poll_accept_bi(cx))
     }
 
     /// A future that crates a new bidirectional stream.
-    fn open_bi(&self) -> OpenBi<Self> {
-        OpenBi {
-            session: self.clone(),
-        }
+    fn open_bi(
+        &self,
+    ) -> impl Future<Output = Result<(Self::SendStream, Self::RecvStream), Self::Error>> + Send
+    {
+        poll_fn(|cx| self.poll_open_bi(cx))
     }
 
     /// A future that crates a new unidirectional stream.
-    fn open_uni(&self) -> OpenUni<Self> {
-        OpenUni {
-            session: self.clone(),
-        }
+    fn open_uni(&self) -> impl Future<Output = Result<Self::SendStream, Self::Error>> + Send {
+        poll_fn(|cx| self.poll_open_uni(cx))
     }
 
     /// A future that blocks until the connection is closed.
-    fn closed(&self) -> Closed<Self> {
-        Closed {
-            session: self.clone(),
-        }
+    fn closed(&self) -> impl Future<Output = Self::Error> + Send {
+        poll_fn(|cx| self.poll_closed(cx))
+    }
+
+    /// A helper to make poll_recv_datagram async
+    fn recv_datagram(&self) -> impl Future<Output = Result<bytes::Bytes, Self::Error>> + Send {
+        poll_fn(|cx| self.poll_recv_datagram(cx))
     }
 }
 
 /// Trait that represent an error from the transport layer
-pub trait SessionError: Error + Send + Sync + 'static {
+pub trait SessionError: Error + Send + Sync + Debug + 'static {
     /// Get the QUIC error code from CONNECTION_CLOSE
     fn session_error(&self) -> Option<u32>;
-}
-
-#[must_use = "futures do nothing unless you `.await` or poll them"]
-pub struct AcceptUni<S> {
-    session: S,
-}
-
-impl<S> Future for AcceptUni<S>
-where
-    S: Session,
-{
-    type Output = Result<S::RecvStream, S::Error>;
-
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let this = &mut *self;
-        Pin::new(&mut this.session).poll_accept_uni(cx)
-    }
-}
-
-#[must_use = "futures do nothing unless you `.await` or poll them"]
-pub struct AcceptBi<S> {
-    session: S,
-}
-
-impl<S> Future for AcceptBi<S>
-where
-    S: Session,
-{
-    type Output = Result<(S::SendStream, S::RecvStream), S::Error>;
-
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let this = &mut *self;
-        Pin::new(&mut this.session).poll_accept_bi(cx)
-    }
-}
-
-#[must_use = "futures do nothing unless you `.await` or poll them"]
-pub struct OpenUni<S> {
-    session: S,
-}
-
-impl<S> Future for OpenUni<S>
-where
-    S: Session,
-{
-    type Output = Result<S::SendStream, S::Error>;
-
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let this = &mut *self;
-        Pin::new(&mut this.session).poll_open_uni(cx)
-    }
-}
-
-#[must_use = "futures do nothing unless you `.await` or poll them"]
-pub struct OpenBi<S> {
-    session: S,
-}
-
-impl<S> Future for OpenBi<S>
-where
-    S: Session,
-{
-    type Output = Result<(S::SendStream, S::RecvStream), S::Error>;
-
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let this = &mut *self;
-        Pin::new(&mut this.session).poll_open_bi(cx)
-    }
-}
-
-#[must_use = "futures do nothing unless you `.await` or poll them"]
-pub struct Closed<S> {
-    session: S,
-}
-
-impl<S> Future for Closed<S>
-where
-    S: Session,
-{
-    type Output = S::Error;
-
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let this = &mut *self;
-        Pin::new(&mut this.session).poll_closed(cx)
-    }
 }

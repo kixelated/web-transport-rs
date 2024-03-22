@@ -138,7 +138,7 @@ impl Session {
     ///
     /// Datagrams are unreliable and may be dropped or delivered out of order.
     /// The data must be smaller than [`max_datagram_size`](Self::max_datagram_size).
-    pub async fn send_datagram(&self, data: Bytes) -> Result<(), SessionError> {
+    pub fn send_datagram(&self, data: Bytes) -> Result<(), SessionError> {
         // Unfortunately, we need to allocate/copy each datagram because of the Quinn API.
         // Pls go +1 if you care: https://github.com/quinn-rs/quinn/issues/1724
         let mut buf = BytesMut::with_capacity(self.header_datagram.len() + data.len());
@@ -450,5 +450,13 @@ impl webtransport_generic::Session for Session {
 
     fn poll_closed(&self, cx: &mut Context<'_>) -> Poll<Self::Error> {
         pin!(self.closed()).poll(cx)
+    }
+
+    fn poll_recv_datagram(&self, cx: &mut Context<'_>) -> Poll<Result<bytes::Bytes, Self::Error>> {
+        pin!(self.read_datagram()).poll(cx)
+    }
+
+    fn send_datagram(&self, data: bytes::Bytes) -> Result<(), Self::Error> {
+        self.send_datagram(data)
     }
 }

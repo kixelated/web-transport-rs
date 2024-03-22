@@ -1,7 +1,7 @@
 use tokio::io::AsyncWrite;
 
 /// A trait describing the "send" actions of a QUIC stream.
-pub trait SendStream: AsyncWrite + Send + Unpin {
+pub trait SendStream: AsyncWrite + Unpin + Send {
     /// Send a QUIC reset code.
     fn reset(&mut self, reset_code: u32);
 

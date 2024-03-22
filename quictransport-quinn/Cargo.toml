@@ -1,6 +1,6 @@
 [package]
-name = "webtransport-quinn"
-description = "WebTransport library for Quinn"
+name = "quictransport-quinn"
+description = "QuicTransport bindings for Quinn"
 authors = ["Luke Curley"]
 repository = "https://github.com/kixelated/webtransport-rs"
 license = "MIT"
@@ -14,25 +14,13 @@ categories = ["network-programming", "web-programming"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-webtransport-proto = { path = "../webtransport-proto", version = "0.6" }
 webtransport-generic = { path = "../webtransport-generic", version = "0.8" }
 
 quinn = "0.10"
-bytes = "1"
-quinn-proto = "0.10"
-http = "0.2"
-thiserror = "1"
-futures = "0.3"
-url = "2"
-log = "0.4"
 
 # This is just for AsyncRead/AsyncWrite and does NOT pull in anything else
 tokio = { version = "1", default-features = false }
 
-[dev-dependencies]
-anyhow = "1"
-tokio = { version = "1", features = ["full"] }
-rustls = { version = "0.21", features = ["dangerous_configuration", "quic"] }
-env_logger = "0.10"
-clap = { version = "4", features = ["derive"] }
-rustls-pemfile = "1.0.2"
+bytes = "1"
+thiserror = "1"
+url = "2"

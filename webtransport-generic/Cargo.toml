@@ -5,7 +5,7 @@ authors = ["Luke Curley", "François Michel"]
 repository = "https://github.com/kixelated/webtransport-rs"
 license = "MIT OR Apache-2.0"
 
-version = "0.5.0"
+version = "0.8.0"
 edition = "2021"
 
 keywords = ["quic", "http3", "webtransport"]
@@ -15,4 +15,5 @@ categories = ["network-programming", "web-programming"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-tokio = "1" # only includes AsyncRead and AsyncWrite; no features
+tokio = { version = "1", default-features = false }
+bytes = "1"

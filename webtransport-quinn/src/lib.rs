@@ -44,4 +44,4 @@ use connect::*;
 use settings::*;
 
 /// The HTTP/3 ALPN is required when negotiating a QUIC connection.
-pub static ALPN: &[u8] = b"h3";
+pub const ALPN: &[u8] = b"h3";

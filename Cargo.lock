@@ -569,6 +569,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "quictransport-quinn"
+version = "0.8.0"
+dependencies = [
+ "bytes",
+ "quinn",
+ "thiserror",
+ "tokio",
+ "url",
+ "webtransport-generic",
+]
+
+[[package]]
 name = "quinn"
 version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1114,21 +1126,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "webtransport-baton"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "log",
- "rand",
- "tokio",
- "url",
- "webtransport-generic",
-]
-
-[[package]]
 name = "webtransport-generic"
-version = "0.5.0"
+version = "0.8.0"
 dependencies = [
+ "bytes",
  "tokio",
 ]
 
@@ -1144,7 +1145,7 @@ dependencies = [
 
 [[package]]
 name = "webtransport-quinn"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "anyhow",
  "bytes",
@@ -1160,7 +1161,6 @@ dependencies = [
  "thiserror",
  "tokio",
  "url",
- "webtransport-baton",
  "webtransport-generic",
  "webtransport-proto",
 ]
