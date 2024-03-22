@@ -578,7 +578,6 @@ dependencies = [
  "tokio",
  "url",
  "webtransport-generic",
- "webtransport-proto",
 ]
 
 [[package]]
