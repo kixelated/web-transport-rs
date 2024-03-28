@@ -26,15 +26,17 @@
 // External
 mod client;
 mod error;
+mod recv;
+mod send;
 mod server;
 mod session;
-mod stream;
 
 pub use client::*;
 pub use error::*;
+pub use recv::*;
+pub use send::*;
 pub use server::*;
 pub use session::*;
-pub use stream::*;
 
 // Internal
 mod connect;

@@ -1,4 +1,11 @@
-use std::{ops, pin::Pin};
+use std::{
+    error::Error,
+    fmt,
+    future::Future,
+    ops,
+    pin::{pin, Pin},
+    task::{ready, Context, Poll},
+};
 
 use quinn::VarInt;
 use tokio::io::{AsyncRead, ReadBuf};
@@ -36,8 +43,75 @@ impl AsyncRead for RecvStream {
 }
 
 impl webtransport_generic::RecvStream for RecvStream {
+    type Error = ReadError;
+
     /// Send a `STOP_SENDING` QUIC code.
-    fn stop(&mut self, error_code: u32) {
-        quinn::RecvStream::stop(self, VarInt::from_u32(error_code)).ok();
+    fn close(mut self, code: u32) {
+        quinn::RecvStream::stop(&mut self, VarInt::from_u32(code)).ok();
+    }
+
+    fn poll_read_buf<B: bytes::BufMut>(
+        &mut self,
+        cx: &mut Context<'_>,
+        buf: &mut B,
+    ) -> Poll<Result<usize, Self::Error>> {
+        let dst = buf.chunk_mut();
+        let dst = unsafe { &mut *(dst as *mut _ as *mut [u8]) };
+
+        Poll::Ready(
+            match ready!(pin!(quinn::RecvStream::read(self, dst)).poll(cx)) {
+                Ok(Some(n)) => unsafe {
+                    buf.advance_mut(n);
+                    Ok(n)
+                },
+                Ok(None) => Ok(0),
+                Err(err) => Err(err.into()),
+            },
+        )
+    }
+
+    fn poll_read_chunk(
+        &mut self,
+        cx: &mut Context<'_>,
+    ) -> Poll<Result<Option<bytes::Bytes>, Self::Error>> {
+        Poll::Ready(
+            match ready!(pin!(quinn::RecvStream::read_chunk(self, usize::MAX, true)).poll(cx)) {
+                Ok(Some(chunk)) => Ok(Some(chunk.bytes)),
+                Ok(None) => Ok(None),
+                Err(err) => Err(err.into()),
+            },
+        )
+    }
+}
+
+#[derive(Clone)]
+pub struct ReadError(quinn::ReadError);
+
+impl From<quinn::ReadError> for ReadError {
+    fn from(err: quinn::ReadError) -> Self {
+        ReadError(err)
+    }
+}
+
+impl Error for ReadError {}
+
+impl fmt::Debug for ReadError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Debug::fmt(&self.0, f)
+    }
+}
+
+impl fmt::Display for ReadError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Display::fmt(&self.0, f)
+    }
+}
+
+impl webtransport_generic::ErrorCode for ReadError {
+    fn code(&self) -> Option<u32> {
+        match self.0 {
+            quinn::ReadError::Reset(code) => TryInto::<u32>::try_into(code.into_inner()).ok(),
+            _ => None,
+        }
     }
 }
