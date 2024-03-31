@@ -9,7 +9,7 @@ use bytes::{Buf, BufMut};
 use super::huffman::{self, HpackStringDecode};
 use thiserror::Error;
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Clone)]
 pub enum DecodeError {
     #[error("unexpected end of input")]
     UnexpectedEnd,

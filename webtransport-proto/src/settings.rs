@@ -49,7 +49,7 @@ settings! {
     WEBTRANSPORT_MAX_SESSIONS = 0xc671706a,
 }
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Clone)]
 pub enum SettingsError {
     #[error("unexpected end of input")]
     UnexpectedEnd,

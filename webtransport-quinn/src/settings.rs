@@ -3,7 +3,7 @@ use std::io;
 
 use thiserror::Error;
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Clone)]
 pub enum SettingsError {
     #[error("quic stream was closed early")]
     UnexpectedEnd,

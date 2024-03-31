@@ -8,7 +8,7 @@ use super::{qpack, Frame, VarInt};
 use thiserror::Error;
 
 // Errors that can occur during the connect request.
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Clone)]
 pub enum ConnectError {
     #[error("unexpected end of input")]
     UnexpectedEnd,
@@ -20,13 +20,13 @@ pub enum ConnectError {
     UnexpectedFrame(Frame),
 
     #[error("invalid method")]
-    InvalidMethod(#[from] http::method::InvalidMethod),
+    InvalidMethod,
 
     #[error("invalid url")]
     InvalidUrl(#[from] url::ParseError),
 
     #[error("invalid status")]
-    InvalidStatus(#[from] http::status::InvalidStatusCode),
+    InvalidStatus,
 
     #[error("expected 200, got: {0:?}")]
     WrongStatus(Option<http::StatusCode>),
@@ -79,7 +79,10 @@ impl ConnectRequest {
         let path = headers.get(":path").ok_or(ConnectError::WrongPath)?;
 
         let method = headers.get(":method");
-        match method.map(|method| method.try_into()).transpose()? {
+        match method
+            .map(|method| method.try_into().map_err(|_| ConnectError::InvalidMethod))
+            .transpose()?
+        {
             Some(http::Method::CONNECT) => (),
             o => return Err(ConnectError::WrongMethod(o)),
         };
@@ -129,7 +132,9 @@ impl ConnectResponse {
 
         let status = match headers
             .get(":status")
-            .map(http::StatusCode::from_str)
+            .map(|status| {
+                http::StatusCode::from_str(status).map_err(|_| ConnectError::InvalidStatus)
+            })
             .transpose()?
         {
             Some(status) if status.is_success() => status,
