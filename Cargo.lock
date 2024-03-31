@@ -570,7 +570,7 @@ dependencies = [
 
 [[package]]
 name = "quictransport-quinn"
-version = "0.8.0"
+version = "0.8.1"
 dependencies = [
  "bytes",
  "quinn",
@@ -1135,7 +1135,7 @@ dependencies = [
 
 [[package]]
 name = "webtransport-proto"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "bytes",
  "http",
@@ -1145,7 +1145,7 @@ dependencies = [
 
 [[package]]
 name = "webtransport-quinn"
-version = "0.8.0"
+version = "0.8.1"
 dependencies = [
  "anyhow",
  "bytes",

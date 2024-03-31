@@ -5,7 +5,7 @@ use url::Url;
 use crate::{Connect, ConnectError, Session, Settings, SettingsError};
 
 /// An error returned when connecting to a WebTransport endpoint.
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Clone)]
 pub enum ClientError {
     #[error("unexpected end of stream")]
     UnexpectedEnd,

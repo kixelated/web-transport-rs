@@ -4,7 +4,7 @@ use url::Url;
 use crate::Session;
 
 /// An error returned when connecting to a WebTransport endpoint.
-#[derive(thiserror::Error, Debug)]
+#[derive(thiserror::Error, Debug, Clone)]
 pub enum ClientError {
     #[error("connection error: {0}")]
     Connection(#[from] quinn::ConnectionError),

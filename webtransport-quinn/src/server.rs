@@ -4,7 +4,7 @@ use thiserror::Error;
 use url::Url;
 
 /// An error returned when receiving a new WebTransport session.
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Clone)]
 pub enum ServerError {
     #[error("unexpected end of stream")]
     UnexpectedEnd,

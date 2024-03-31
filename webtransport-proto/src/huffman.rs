@@ -36,7 +36,7 @@ impl BitWindow {
 
 use thiserror::Error;
 
-#[derive(Error, Debug, PartialEq)]
+#[derive(Error, Debug, PartialEq, Clone)]
 pub enum Error {
     #[error("missing bits: {0:?}")]
     MissingBits(BitWindow),

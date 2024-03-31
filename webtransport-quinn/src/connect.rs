@@ -5,7 +5,7 @@ use webtransport_proto::{ConnectRequest, ConnectResponse, VarInt};
 use thiserror::Error;
 use url::Url;
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Clone)]
 pub enum ConnectError {
     #[error("quic stream was closed early")]
     UnexpectedEnd,
