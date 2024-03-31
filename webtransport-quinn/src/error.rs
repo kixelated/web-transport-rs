@@ -26,9 +26,9 @@ pub enum WebTransportError {
     WriteError(#[from] quinn::WriteError),
 }
 
-impl webtransport_generic::SessionError for SessionError {
+impl webtransport_generic::ErrorCode for SessionError {
     // Get the app error code from a CONNECTION_CLOSE
-    fn session_error(&self) -> Option<u32> {
+    fn code(&self) -> Option<u32> {
         match self {
             SessionError::ConnectionError(quinn::ConnectionError::ApplicationClosed(app)) => {
                 webtransport_proto::error_from_http3(app.error_code.into_inner())
@@ -70,11 +70,11 @@ impl From<quinn::WriteError> for WriteError {
     }
 }
 
-impl webtransport_generic::SessionError for WriteError {
+impl webtransport_generic::ErrorCode for WriteError {
     // Get the app error code from a CONNECTION_CLOSE
-    fn session_error(&self) -> Option<u32> {
+    fn code(&self) -> Option<u32> {
         match self {
-            WriteError::SessionError(e) => e.session_error(),
+            WriteError::Stopped(code) => Some(*code),
             _ => None,
         }
     }
@@ -116,11 +116,11 @@ impl From<quinn::ReadError> for ReadError {
     }
 }
 
-impl webtransport_generic::SessionError for ReadError {
+impl webtransport_generic::ErrorCode for ReadError {
     // Get the app error code from a CONNECTION_CLOSE
-    fn session_error(&self) -> Option<u32> {
+    fn code(&self) -> Option<u32> {
         match self {
-            ReadError::SessionError(e) => e.session_error(),
+            ReadError::Reset(code) => Some(*code),
             _ => None,
         }
     }
