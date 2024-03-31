@@ -37,8 +37,8 @@ impl fmt::Debug for SessionError {
 
 impl Error for SessionError {}
 
-impl webtransport_generic::SessionError for SessionError {
-    fn session_error(&self) -> Option<u32> {
+impl webtransport_generic::ErrorCode for SessionError {
+    fn code(&self) -> Option<u32> {
         match &self.0 {
             quinn::ConnectionError::ApplicationClosed(msg) => {
                 msg.error_code.into_inner().try_into().ok()

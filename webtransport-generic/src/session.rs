@@ -1,10 +1,7 @@
-use std::error::Error;
 use std::future::{poll_fn, Future};
-
-use std::fmt::Debug;
 use std::task::{Context, Poll};
 
-use super::{RecvStream, SendStream};
+use crate::{ErrorCode, RecvStream, SendStream};
 
 /// Trait representing a WebTransport session.
 ///
@@ -13,7 +10,7 @@ use super::{RecvStream, SendStream};
 pub trait Session: Clone + Send + Sync + Unpin {
     type SendStream: SendStream;
     type RecvStream: RecvStream;
-    type Error: SessionError;
+    type Error: ErrorCode;
 
     /// Accept an incoming unidirectional stream
     fn poll_accept_uni(&self, cx: &mut Context<'_>) -> Poll<Result<Self::RecvStream, Self::Error>>;
@@ -84,10 +81,4 @@ pub trait Session: Clone + Send + Sync + Unpin {
     fn recv_datagram(&self) -> impl Future<Output = Result<bytes::Bytes, Self::Error>> + Send {
         poll_fn(|cx| self.poll_recv_datagram(cx))
     }
-}
-
-/// Trait that represent an error from the transport layer
-pub trait SessionError: Error + Send + Sync + Debug + 'static {
-    /// Get the QUIC error code from CONNECTION_CLOSE
-    fn session_error(&self) -> Option<u32>;
 }
