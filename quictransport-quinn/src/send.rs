@@ -1,12 +1,6 @@
-use std::{
-    error::Error,
-    fmt,
-    future::Future,
-    ops,
-    pin::{pin, Pin},
-    task::{ready, Context, Poll},
-};
+use std::{error::Error, fmt, ops, pin::Pin};
 
+use bytes::Bytes;
 use quinn::VarInt;
 use tokio::io::AsyncWrite;
 
@@ -56,35 +50,28 @@ impl AsyncWrite for SendStream {
     }
 }
 
+#[async_trait::async_trait(?Send)]
 impl webtransport_generic::SendStream for SendStream {
     type Error = WriteError;
 
-    fn priority(&mut self, order: i32) {
-        quinn::SendStream::set_priority(self, order).ok();
+    async fn write<B: bytes::Buf>(&mut self, buf: &mut B) -> Result<usize, Self::Error> {
+        let size = quinn::SendStream::write(self, buf.chunk()).await?;
+        buf.advance(size);
+        Ok(size)
+    }
+
+    async fn write_chunk(&mut self, buf: Bytes) -> Result<(), Self::Error> {
+        quinn::SendStream::write_chunk(self, buf)
+            .await
+            .map_err(Into::into)
     }
 
     fn close(mut self, code: u32) {
         quinn::SendStream::reset(&mut self, VarInt::from_u32(code)).ok();
     }
 
-    fn poll_write(&mut self, cx: &mut Context<'_>, buf: &[u8]) -> Poll<Result<usize, Self::Error>> {
-        pin!(quinn::SendStream::write(self, buf))
-            .poll(cx)
-            .map(|res| res.map_err(Into::into))
-    }
-
-    fn poll_write_buf<B: bytes::Buf>(
-        &mut self,
-        cx: &mut Context<'_>,
-        buf: &mut B,
-    ) -> Poll<Result<usize, Self::Error>> {
-        Poll::Ready(match ready!(self.poll_write(cx, buf.chunk())) {
-            Ok(n) => {
-                buf.advance(n);
-                Ok(n)
-            }
-            Err(e) => Err(e),
-        })
+    fn priority(&mut self, order: i32) {
+        quinn::SendStream::set_priority(self, order).ok();
     }
 }
 

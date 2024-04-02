@@ -1,11 +1,10 @@
 use std::{
     io,
-    pin::{pin, Pin},
-    task::{ready, Context, Poll},
+    pin::Pin,
+    task::{Context, Poll},
 };
 
-use bytes::Bytes;
-use futures::Future;
+use bytes::{BufMut, Bytes};
 
 use crate::{ReadError, ReadExactError, ReadToEndError};
 
@@ -75,38 +74,26 @@ impl tokio::io::AsyncRead for RecvStream {
     }
 }
 
+#[async_trait::async_trait(?Send)]
 impl webtransport_generic::RecvStream for RecvStream {
     type Error = ReadError;
 
-    fn poll_read_buf<B: bytes::BufMut>(
-        &mut self,
-        cx: &mut Context<'_>,
-        buf: &mut B,
-    ) -> Poll<Result<usize, Self::Error>> {
+    async fn read<B: BufMut>(&mut self, buf: &mut B) -> Result<Option<usize>, Self::Error> {
         let dst = buf.chunk_mut();
-        let dst = unsafe { &mut *(dst as *mut _ as *mut [u8]) };
+        let mut dst = unsafe { &mut *(dst as *mut _ as *mut [u8]) };
 
-        Poll::Ready(match ready!(pin!(RecvStream::read(self, dst)).poll(cx)) {
-            Ok(Some(n)) => unsafe {
-                buf.advance_mut(n);
-                Ok(n)
-            },
-            Ok(None) => Ok(0),
-            Err(err) => Err(err),
+        RecvStream::read(self, &mut dst).await.map(|res| {
+            res.map(|n| {
+                unsafe { buf.advance_mut(n) }
+                n
+            })
         })
     }
 
-    fn poll_read_chunk(
-        &mut self,
-        cx: &mut Context<'_>,
-    ) -> Poll<Result<Option<bytes::Bytes>, Self::Error>> {
-        Poll::Ready(
-            match ready!(pin!(RecvStream::read_chunk(self, usize::MAX, true)).poll(cx)) {
-                Ok(Some(chunk)) => Ok(Some(chunk.bytes)),
-                Ok(None) => Ok(None),
-                Err(e) => Err(e),
-            },
-        )
+    async fn read_chunk(&mut self, max: usize) -> Result<Option<Bytes>, Self::Error> {
+        RecvStream::read_chunk(self, max, true)
+            .await
+            .map(|chunk| chunk.map(|chunk| chunk.bytes))
     }
 
     /// Send a `STOP_SENDING` QUIC code.

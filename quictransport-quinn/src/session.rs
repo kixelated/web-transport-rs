@@ -1,6 +1,8 @@
-use std::{future::Future, ops, pin::pin};
+use std::ops;
 
-use quinn::VarInt;
+use bytes::Bytes;
+
+use crate::{RecvStream, SendStream, SessionError};
 
 #[derive(Clone)]
 pub struct Session(quinn::Connection);
@@ -25,76 +27,51 @@ impl From<quinn::Connection> for Session {
     }
 }
 
+#[async_trait::async_trait(?Send)]
 impl webtransport_generic::Session for Session {
-    type SendStream = super::SendStream;
-    type RecvStream = super::RecvStream;
-    type Error = super::SessionError;
+    type SendStream = SendStream;
+    type RecvStream = RecvStream;
+    type Error = SessionError;
 
-    fn poll_accept_bi(
-        &self,
-        cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<Result<(Self::SendStream, Self::RecvStream), Self::Error>> {
-        pin!(quinn::Connection::accept_bi(&self.0))
-            .poll(cx)
-            .map_ok(|(s, r)| (s.into(), r.into()))
+    /// Accept an incoming unidirectional stream
+    async fn accept_uni(&mut self) -> Result<Self::RecvStream, Self::Error> {
+        Ok(quinn::Connection::accept_uni(self).await?.into())
+    }
+
+    /// Accept an incoming bidirectional stream
+    async fn accept_bi(&mut self) -> Result<(Self::SendStream, Self::RecvStream), Self::Error> {
+        let pair = quinn::Connection::accept_bi(self).await?;
+        Ok((pair.0.into(), pair.1.into()))
+    }
+
+    async fn open_uni(&mut self) -> Result<Self::SendStream, Self::Error> {
+        Ok(quinn::Connection::open_uni(self).await?.into())
+    }
+
+    async fn open_bi(&mut self) -> Result<(Self::SendStream, Self::RecvStream), Self::Error> {
+        let pair = quinn::Connection::open_bi(self).await?;
+        Ok((pair.0.into(), pair.1.into()))
+    }
+
+    /// Close the connection immediately
+    fn close(self, code: u32, reason: &str) {
+        quinn::Connection::close(&self, code.into(), reason.as_bytes())
+    }
+
+    async fn closed(&self) -> Self::Error {
+        quinn::Connection::closed(self).await.into()
+    }
+
+    async fn recv_datagram(&mut self) -> Result<Bytes, Self::Error> {
+        Ok(quinn::Connection::read_datagram(self).await?.into())
+    }
+
+    async fn send_datagram(&mut self, data: Bytes) -> Result<(), Self::Error> {
+        quinn::Connection::send_datagram(self, data)
+            .map_err(|err| match err {
+                quinn::SendDatagramError::ConnectionLost(err) => err,
+                _ => quinn::ConnectionError::Reset, // TODO: better error
+            })
             .map_err(Into::into)
-    }
-
-    fn poll_accept_uni(
-        &self,
-        cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<Result<Self::RecvStream, Self::Error>> {
-        pin!(quinn::Connection::accept_uni(&self.0))
-            .poll(cx)
-            .map_ok(Into::into)
-            .map_err(Into::into)
-    }
-
-    fn poll_open_bi(
-        &self,
-        cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<Result<(Self::SendStream, Self::RecvStream), Self::Error>> {
-        pin!(quinn::Connection::open_bi(&self.0))
-            .poll(cx)
-            .map_ok(|(s, r)| (s.into(), r.into()))
-            .map_err(Into::into)
-    }
-
-    fn poll_open_uni(
-        &self,
-        cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<Result<Self::SendStream, Self::Error>> {
-        pin!(quinn::Connection::open_uni(&self.0))
-            .poll(cx)
-            .map_ok(Into::into)
-            .map_err(Into::into)
-    }
-
-    fn close(&self, code: u32, reason: &[u8]) {
-        quinn::Connection::close(self, VarInt::from_u32(code), reason)
-    }
-
-    fn poll_closed(&self, cx: &mut std::task::Context<'_>) -> std::task::Poll<Self::Error> {
-        pin!(quinn::Connection::closed(&self.0))
-            .poll(cx)
-            .map(Into::into)
-    }
-
-    fn poll_recv_datagram(
-        &self,
-        cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<Result<bytes::Bytes, Self::Error>> {
-        pin!(quinn::Connection::read_datagram(&self.0))
-            .poll(cx)
-            .map_ok(Into::into)
-            .map_err(Into::into)
-    }
-
-    fn send_datagram(&self, payload: bytes::Bytes) -> Result<(), Self::Error> {
-        quinn::Connection::send_datagram(self, payload).map_err(|e| match e {
-            quinn::SendDatagramError::ConnectionLost(err) => err.into(),
-            // Not the right error but good enough
-            _ => quinn::ConnectionError::Reset.into(),
-        })
     }
 }

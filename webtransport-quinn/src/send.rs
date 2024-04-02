@@ -1,11 +1,10 @@
 use std::{
     io,
-    pin::{pin, Pin},
-    task::{ready, Context, Poll},
+    pin::Pin,
+    task::{Context, Poll},
 };
 
 use bytes::Bytes;
-use futures::Future;
 
 use crate::{StoppedError, StreamClosed, WriteError};
 
@@ -100,25 +99,18 @@ impl tokio::io::AsyncWrite for SendStream {
     }
 }
 
+#[async_trait::async_trait(?Send)]
 impl webtransport_generic::SendStream for SendStream {
     type Error = WriteError;
 
-    fn poll_write(&mut self, cx: &mut Context<'_>, buf: &[u8]) -> Poll<Result<usize, Self::Error>> {
-        pin!(SendStream::write(self, buf)).poll(cx)
+    async fn write<B: bytes::Buf>(&mut self, buf: &mut B) -> Result<usize, Self::Error> {
+        let size = SendStream::write(self, buf.chunk()).await?;
+        buf.advance(size);
+        Ok(size)
     }
 
-    fn poll_write_buf<B: bytes::Buf>(
-        &mut self,
-        cx: &mut Context<'_>,
-        buf: &mut B,
-    ) -> Poll<Result<usize, Self::Error>> {
-        Poll::Ready(match ready!(self.poll_write(cx, buf.chunk())) {
-            Ok(n) => {
-                buf.advance(n);
-                Ok(n)
-            }
-            Err(e) => Err(e),
-        })
+    async fn write_chunk(&mut self, buf: Bytes) -> Result<(), Self::Error> {
+        SendStream::write_chunk(self, buf).await
     }
 
     fn close(mut self, code: u32) {

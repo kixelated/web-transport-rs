@@ -3,7 +3,7 @@ use std::{
     future::{poll_fn, Future},
     io::Cursor,
     ops::Deref,
-    pin::{pin, Pin},
+    pin::Pin,
     sync::{Arc, Mutex},
     task::{ready, Context, Poll},
 };
@@ -408,55 +408,44 @@ impl SessionAccept {
     }
 }
 
+#[async_trait::async_trait(?Send)]
 impl webtransport_generic::Session for Session {
     type SendStream = SendStream;
     type RecvStream = RecvStream;
     type Error = SessionError;
 
     /// Accept an incoming unidirectional stream
-    ///
-    /// Returning `None` implies the connection is closing or closed.
-    fn poll_accept_uni(&self, cx: &mut Context<'_>) -> Poll<Result<Self::RecvStream, Self::Error>> {
-        self.accept.lock().unwrap().poll_accept_uni(cx)
+    async fn accept_uni(&mut self) -> Result<Self::RecvStream, Self::Error> {
+        Session::accept_uni(self).await
     }
 
     /// Accept an incoming bidirectional stream
-    ///
-    /// Returning `None` implies the connection is closing or closed.
-    fn poll_accept_bi(
-        &self,
-        cx: &mut Context<'_>,
-    ) -> Poll<Result<(Self::SendStream, Self::RecvStream), Self::Error>> {
-        self.accept.lock().unwrap().poll_accept_bi(cx)
+    async fn accept_bi(&mut self) -> Result<(Self::SendStream, Self::RecvStream), Self::Error> {
+        Session::accept_bi(self).await
     }
 
-    /// Poll the connection to create a new bidirectional stream.
-    fn poll_open_bi(
-        &self,
-        cx: &mut Context<'_>,
-    ) -> Poll<Result<(Self::SendStream, Self::RecvStream), Self::Error>> {
-        pin!(self.open_bi()).poll(cx)
+    async fn open_uni(&mut self) -> Result<Self::SendStream, Self::Error> {
+        Session::open_uni(self).await
     }
 
-    /// Poll the connection to create a new unidirectional stream.
-    fn poll_open_uni(&self, cx: &mut Context<'_>) -> Poll<Result<Self::SendStream, Self::Error>> {
-        pin!(self.open_uni()).poll(cx)
+    async fn open_bi(&mut self) -> Result<(Self::SendStream, Self::RecvStream), Self::Error> {
+        Session::open_bi(self).await
     }
 
     /// Close the connection immediately
-    fn close(&self, code: u32, reason: &[u8]) {
-        Session::close(self, code, reason)
+    fn close(self, code: u32, reason: &str) {
+        Session::close(&self, code, reason.as_bytes())
     }
 
-    fn poll_closed(&self, cx: &mut Context<'_>) -> Poll<Self::Error> {
-        pin!(self.closed()).poll(cx)
+    async fn closed(&self) -> Self::Error {
+        Session::closed(self).await
     }
 
-    fn poll_recv_datagram(&self, cx: &mut Context<'_>) -> Poll<Result<bytes::Bytes, Self::Error>> {
-        pin!(self.read_datagram()).poll(cx)
+    async fn recv_datagram(&mut self) -> Result<Bytes, Self::Error> {
+        Session::recv_datagram(self).await
     }
 
-    fn send_datagram(&self, data: bytes::Bytes) -> Result<(), Self::Error> {
-        self.send_datagram(data)
+    async fn send_datagram(&mut self, data: Bytes) -> Result<(), Self::Error> {
+        Session::send_datagram(self, data)
     }
 }

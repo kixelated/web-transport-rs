@@ -17,6 +17,7 @@ categories = ["network-programming", "web-programming"]
 webtransport-generic = { path = "../webtransport-generic", version = "0.9" }
 
 quinn = "0.10"
+async-trait = "0.1"
 
 # This is just for AsyncRead/AsyncWrite and does NOT pull in anything else
 tokio = { version = "1", default-features = false }

@@ -4,6 +4,7 @@ members = [
     "webtransport-quinn",
     "webtransport-proto",
     "webtransport-generic",
+    "webtransport-wasm",
     "web-transport",
 ]
 resolver = "2"
