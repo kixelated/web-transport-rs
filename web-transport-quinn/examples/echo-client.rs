@@ -45,7 +45,7 @@ async fn main() -> anyhow::Result<()> {
         .with_root_certificates(roots)
         .with_no_client_auth();
 
-    tls_config.alpn_protocols = vec![webtransport_quinn::ALPN.to_vec()]; // this one is important
+    tls_config.alpn_protocols = vec![web_transport_quinn::ALPN.to_vec()]; // this one is important
 
     let config = quinn::ClientConfig::new(std::sync::Arc::new(tls_config));
 
@@ -56,7 +56,7 @@ async fn main() -> anyhow::Result<()> {
     log::info!("connecting to {}", args.url);
 
     // Connect to the given URL.
-    let session = webtransport_quinn::connect(&client, &args.url).await?;
+    let session = web_transport_quinn::connect(&client, &args.url).await?;
 
     log::info!("connected");
 

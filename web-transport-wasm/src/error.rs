@@ -1,7 +1,6 @@
 use std::{error, fmt};
 
 use wasm_bindgen::JsValue;
-use webtransport_generic::ErrorCode;
 
 #[derive(Debug)]
 pub struct WebError {
@@ -33,12 +32,5 @@ impl From<&str> for WebError {
         Self {
             value: value.into(),
         }
-    }
-}
-
-// TODO figure this out somehow?
-impl ErrorCode for WebError {
-    fn code(&self) -> Option<u32> {
-        None
     }
 }

@@ -1,5 +1,5 @@
 [package]
-name = "webtransport-wasm"
+name = "web-transport-wasm"
 description = "WebTransport WASM bindings"
 authors = ["Luke Curley"]
 repository = "https://github.com/kixelated/webtransport-rs"
@@ -12,9 +12,6 @@ keywords = ["quic", "http3", "webtransport"]
 categories = ["network-programming", "web-programming"]
 
 [dependencies]
-webtransport-generic = { path = "../webtransport-generic", version = "0.9" }
-
-async-trait = "0.1"
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"
 js-sys = "0.3.69"

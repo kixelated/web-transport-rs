@@ -25,7 +25,7 @@ impl RecvStream {
         })
     }
 
-    async fn read<B: BufMut>(&mut self, buf: &mut B) -> Result<Option<usize>, WebError> {
+    pub async fn read<B: BufMut>(&mut self, buf: &mut B) -> Result<Option<usize>, WebError> {
         Ok(self.read_chunk(buf.remaining_mut()).await?.map(|chunk| {
             let size = chunk.len();
             buf.put(chunk);
@@ -33,7 +33,7 @@ impl RecvStream {
         }))
     }
 
-    async fn read_chunk(&mut self, max: usize) -> Result<Option<Bytes>, WebError> {
+    pub async fn read_chunk(&mut self, max: usize) -> Result<Option<Bytes>, WebError> {
         if !self.buffer.is_empty() {
             let size = cmp::min(max, self.buffer.len());
             let data = self.buffer.split_to(size).freeze();
@@ -54,24 +54,7 @@ impl RecvStream {
         Ok(Some(data))
     }
 
-    fn close(self, reason: &str) {
+    pub fn close(self, reason: &str) {
         self.reader.close(reason);
-    }
-}
-
-#[async_trait::async_trait(?Send)]
-impl webtransport_generic::RecvStream for RecvStream {
-    type Error = WebError;
-
-    async fn read<B: BufMut>(&mut self, buf: &mut B) -> Result<Option<usize>, Self::Error> {
-        RecvStream::read(self, buf).await
-    }
-
-    async fn read_chunk(&mut self, max: usize) -> Result<Option<Bytes>, Self::Error> {
-        RecvStream::read_chunk(self, max).await
-    }
-
-    fn close(self, code: u32) {
-        RecvStream::close(self, &code.to_string())
     }
 }

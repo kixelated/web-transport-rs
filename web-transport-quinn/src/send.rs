@@ -25,7 +25,7 @@ impl SendStream {
     /// Abruptly reset the stream with the provided error code. See [`quinn::SendStream::reset`].
     /// This is a u32 with WebTransport because we share the error space with HTTP/3.
     pub fn reset(&mut self, code: u32) -> Result<(), StreamClosed> {
-        let code = webtransport_proto::error_to_http3(code);
+        let code = web_transport_proto::error_to_http3(code);
         let code = quinn::VarInt::try_from(code).unwrap();
         self.stream.reset(code).map_err(Into::into)
     }
@@ -34,7 +34,7 @@ impl SendStream {
     /// Unlike Quinn, this returns None if the code is not a valid WebTransport error code.
     pub async fn stopped(&mut self) -> Result<Option<u32>, StoppedError> {
         let code = self.stream.stopped().await?;
-        Ok(webtransport_proto::error_from_http3(code.into_inner()))
+        Ok(web_transport_proto::error_from_http3(code.into_inner()))
     }
 
     // Unfortunately, we have to wrap WriteError for a bunch of functions.
@@ -96,28 +96,5 @@ impl tokio::io::AsyncWrite for SendStream {
 
     fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<io::Result<()>> {
         Pin::new(&mut self.stream).poll_shutdown(cx)
-    }
-}
-
-#[async_trait::async_trait(?Send)]
-impl webtransport_generic::SendStream for SendStream {
-    type Error = WriteError;
-
-    async fn write<B: bytes::Buf>(&mut self, buf: &mut B) -> Result<usize, Self::Error> {
-        let size = SendStream::write(self, buf.chunk()).await?;
-        buf.advance(size);
-        Ok(size)
-    }
-
-    async fn write_chunk(&mut self, buf: Bytes) -> Result<(), Self::Error> {
-        SendStream::write_chunk(self, buf).await
-    }
-
-    fn close(mut self, code: u32) {
-        SendStream::reset(&mut self, code).ok();
-    }
-
-    fn priority(&mut self, order: i32) {
-        SendStream::set_priority(self, order).ok();
     }
 }

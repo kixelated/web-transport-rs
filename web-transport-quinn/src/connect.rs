@@ -1,6 +1,6 @@
 use std::io;
 
-use webtransport_proto::{ConnectRequest, ConnectResponse, VarInt};
+use web_transport_proto::{ConnectRequest, ConnectResponse, VarInt};
 
 use thiserror::Error;
 use url::Url;
@@ -11,7 +11,7 @@ pub enum ConnectError {
     UnexpectedEnd,
 
     #[error("protocol error: {0}")]
-    ProtoError(#[from] webtransport_proto::ConnectError),
+    ProtoError(#[from] web_transport_proto::ConnectError),
 
     #[error("connection error")]
     ConnectionError(#[from] quinn::ConnectionError),
@@ -61,7 +61,7 @@ impl Connect {
                 Ok(req) => req,
 
                 // We didn't have enough data in the buffer, so we'll read more and try again.
-                Err(webtransport_proto::ConnectError::UnexpectedEnd) => {
+                Err(web_transport_proto::ConnectError::UnexpectedEnd) => {
                     log::debug!("buffering CONNECT request");
                     continue;
                 }
@@ -128,7 +128,7 @@ impl Connect {
                 Ok(res) => res,
 
                 // We didn't have enough data in the buffer, so we'll read more and try again.
-                Err(webtransport_proto::ConnectError::UnexpectedEnd) => {
+                Err(web_transport_proto::ConnectError::UnexpectedEnd) => {
                     log::debug!("buffering CONNECT response");
                     continue;
                 }
@@ -155,7 +155,7 @@ impl Connect {
     // The session ID is the stream ID of the CONNECT request.
     pub fn session_id(&self) -> VarInt {
         // We gotta convert from the Quinn VarInt to the (forked) WebTransport VarInt.
-        // We don't use the quinn::VarInt because that would mean a quinn dependency in webtransport-proto
+        // We don't use the quinn::VarInt because that would mean a quinn dependency in web-transport-proto
         let stream_id = quinn::VarInt::from(self.send.id());
         VarInt::try_from(stream_id.into_inner()).unwrap()
     }
