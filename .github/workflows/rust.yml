@@ -21,6 +21,9 @@ jobs:
         with:
           components: clippy, rustfmt
 
+      # Set RUSTFLAGS
+      - run: echo "RUSTFLAGS=--cfg=web_sys_unstable_apis" >> $GITHUB_ENV
+
       # Make sure u guys don't write bad code
       - run: cargo test --verbose
       - run: cargo clippy --no-deps
