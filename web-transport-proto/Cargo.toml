@@ -1,8 +1,8 @@
 [package]
-name = "webtransport-proto"
+name = "web-transport-proto"
 description = "WebTransport core protocol"
 authors = ["Luke Curley"]
-repository = "https://github.com/kixelated/webtransport-rs"
+repository = "https://github.com/kixelated/web-transport-rs"
 license = "MIT"
 
 version = "0.6.1"

@@ -2,10 +2,10 @@
 name = "web-transport"
 description = "WebTransport client and server - Placeholder"
 authors = ["Luke Curley"]
-repository = "https://github.com/kixelated/webtransport-rs"
+repository = "https://github.com/kixelated/web-transport-rs"
 license = "MIT"
 
-version = "0.0.1"
+version = "0.10.0"
 edition = "2021"
 
 keywords = ["quic", "http3", "webtransport"]
@@ -14,3 +14,11 @@ categories = ["network-programming", "web-programming"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+bytes = "1"
+thiserror = "1"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+web-transport-wasm = { version = "0.10", path = "../web-transport-wasm" }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+web-transport-quinn = { version = "0.10", path = "../web-transport-quinn" }

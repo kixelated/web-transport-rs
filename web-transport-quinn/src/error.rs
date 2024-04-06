@@ -26,18 +26,6 @@ pub enum WebTransportError {
     WriteError(#[from] quinn::WriteError),
 }
 
-impl webtransport_generic::ErrorCode for SessionError {
-    // Get the app error code from a CONNECTION_CLOSE
-    fn code(&self) -> Option<u32> {
-        match self {
-            SessionError::ConnectionError(quinn::ConnectionError::ApplicationClosed(app)) => {
-                webtransport_proto::error_from_http3(app.error_code.into_inner())
-            }
-            _ => None,
-        }
-    }
-}
-
 /// An error when writing to [`crate::SendStream`]. Similar to [`quinn::WriteError`].
 #[derive(Clone, Error, Debug)]
 pub enum WriteError {
@@ -58,7 +46,7 @@ impl From<quinn::WriteError> for WriteError {
     fn from(e: quinn::WriteError) -> Self {
         match e {
             quinn::WriteError::Stopped(code) => {
-                match webtransport_proto::error_from_http3(code.into_inner()) {
+                match web_transport_proto::error_from_http3(code.into_inner()) {
                     Some(code) => WriteError::Stopped(code),
                     None => WriteError::InvalidStopped(code),
                 }
@@ -66,16 +54,6 @@ impl From<quinn::WriteError> for WriteError {
             quinn::WriteError::UnknownStream => WriteError::Closed,
             quinn::WriteError::ConnectionLost(e) => WriteError::SessionError(e.into()),
             quinn::WriteError::ZeroRttRejected => unreachable!("0-RTT not supported"),
-        }
-    }
-}
-
-impl webtransport_generic::ErrorCode for WriteError {
-    // Get the app error code from a CONNECTION_CLOSE
-    fn code(&self) -> Option<u32> {
-        match self {
-            WriteError::Stopped(code) => Some(*code),
-            _ => None,
         }
     }
 }
@@ -103,7 +81,7 @@ impl From<quinn::ReadError> for ReadError {
     fn from(value: quinn::ReadError) -> Self {
         match value {
             quinn::ReadError::Reset(code) => {
-                match webtransport_proto::error_from_http3(code.into_inner()) {
+                match web_transport_proto::error_from_http3(code.into_inner()) {
                     Some(code) => ReadError::Reset(code),
                     None => ReadError::InvalidReset(code),
                 }
@@ -112,16 +90,6 @@ impl From<quinn::ReadError> for ReadError {
             quinn::ReadError::IllegalOrderedRead => ReadError::IllegalOrderedRead,
             quinn::ReadError::UnknownStream => ReadError::Closed,
             quinn::ReadError::ZeroRttRejected => unreachable!("0-RTT not supported"),
-        }
-    }
-}
-
-impl webtransport_generic::ErrorCode for ReadError {
-    // Get the app error code from a CONNECTION_CLOSE
-    fn code(&self) -> Option<u32> {
-        match self {
-            ReadError::Reset(code) => Some(*code),
-            _ => None,
         }
     }
 }

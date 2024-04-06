@@ -1,8 +1,8 @@
-[![Documentation](https://docs.rs/webtransport-quinn/badge.svg)](https://docs.rs/webtransport-quinn/)
-[![Crates.io](https://img.shields.io/crates/v/webtransport-quinn.svg)](https://crates.io/crates/webtransport-quinn)
+[![Documentation](https://docs.rs/web-transport-quinn/badge.svg)](https://docs.rs/web-transport-quinn/)
+[![Crates.io](https://img.shields.io/crates/v/web-transport-quinn.svg)](https://crates.io/crates/web-transport-quinn)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE-MIT)
 
-# webtransport-quinn
+# web-transport-quinn
 
 ## Example
 

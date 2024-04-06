@@ -1,11 +1,10 @@
 use std::{
     io,
-    pin::{pin, Pin},
-    task::{ready, Context, Poll},
+    pin::Pin,
+    task::{Context, Poll},
 };
 
 use bytes::Bytes;
-use futures::Future;
 
 use crate::{ReadError, ReadExactError, ReadToEndError};
 
@@ -23,7 +22,7 @@ impl RecvStream {
     /// Tell the other end to stop sending data with the given error code. See [`quinn::RecvStream::stop`].
     /// This is a u32 with WebTransport since it shares the error space with HTTP/3.
     pub fn stop(&mut self, code: u32) -> Result<(), quinn::UnknownStream> {
-        let code = webtransport_proto::error_to_http3(code);
+        let code = web_transport_proto::error_to_http3(code);
         let code = quinn::VarInt::try_from(code).unwrap();
         self.inner.stop(code)
     }
@@ -72,45 +71,5 @@ impl tokio::io::AsyncRead for RecvStream {
         buf: &mut tokio::io::ReadBuf,
     ) -> Poll<io::Result<()>> {
         Pin::new(&mut self.inner).poll_read(cx, buf)
-    }
-}
-
-impl webtransport_generic::RecvStream for RecvStream {
-    type Error = ReadError;
-
-    fn poll_read_buf<B: bytes::BufMut>(
-        &mut self,
-        cx: &mut Context<'_>,
-        buf: &mut B,
-    ) -> Poll<Result<usize, Self::Error>> {
-        let dst = buf.chunk_mut();
-        let dst = unsafe { &mut *(dst as *mut _ as *mut [u8]) };
-
-        Poll::Ready(match ready!(pin!(RecvStream::read(self, dst)).poll(cx)) {
-            Ok(Some(n)) => unsafe {
-                buf.advance_mut(n);
-                Ok(n)
-            },
-            Ok(None) => Ok(0),
-            Err(err) => Err(err),
-        })
-    }
-
-    fn poll_read_chunk(
-        &mut self,
-        cx: &mut Context<'_>,
-    ) -> Poll<Result<Option<bytes::Bytes>, Self::Error>> {
-        Poll::Ready(
-            match ready!(pin!(RecvStream::read_chunk(self, usize::MAX, true)).poll(cx)) {
-                Ok(Some(chunk)) => Ok(Some(chunk.bytes)),
-                Ok(None) => Ok(None),
-                Err(e) => Err(e),
-            },
-        )
-    }
-
-    /// Send a `STOP_SENDING` QUIC code.
-    fn close(mut self, code: u32) {
-        self.stop(code).ok();
     }
 }

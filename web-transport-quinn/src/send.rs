@@ -1,11 +1,10 @@
 use std::{
     io,
-    pin::{pin, Pin},
-    task::{ready, Context, Poll},
+    pin::Pin,
+    task::{Context, Poll},
 };
 
 use bytes::Bytes;
-use futures::Future;
 
 use crate::{StoppedError, StreamClosed, WriteError};
 
@@ -26,7 +25,7 @@ impl SendStream {
     /// Abruptly reset the stream with the provided error code. See [`quinn::SendStream::reset`].
     /// This is a u32 with WebTransport because we share the error space with HTTP/3.
     pub fn reset(&mut self, code: u32) -> Result<(), StreamClosed> {
-        let code = webtransport_proto::error_to_http3(code);
+        let code = web_transport_proto::error_to_http3(code);
         let code = quinn::VarInt::try_from(code).unwrap();
         self.stream.reset(code).map_err(Into::into)
     }
@@ -35,7 +34,7 @@ impl SendStream {
     /// Unlike Quinn, this returns None if the code is not a valid WebTransport error code.
     pub async fn stopped(&mut self) -> Result<Option<u32>, StoppedError> {
         let code = self.stream.stopped().await?;
-        Ok(webtransport_proto::error_from_http3(code.into_inner()))
+        Ok(web_transport_proto::error_from_http3(code.into_inner()))
     }
 
     // Unfortunately, we have to wrap WriteError for a bunch of functions.
@@ -97,35 +96,5 @@ impl tokio::io::AsyncWrite for SendStream {
 
     fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<io::Result<()>> {
         Pin::new(&mut self.stream).poll_shutdown(cx)
-    }
-}
-
-impl webtransport_generic::SendStream for SendStream {
-    type Error = WriteError;
-
-    fn poll_write(&mut self, cx: &mut Context<'_>, buf: &[u8]) -> Poll<Result<usize, Self::Error>> {
-        pin!(SendStream::write(self, buf)).poll(cx)
-    }
-
-    fn poll_write_buf<B: bytes::Buf>(
-        &mut self,
-        cx: &mut Context<'_>,
-        buf: &mut B,
-    ) -> Poll<Result<usize, Self::Error>> {
-        Poll::Ready(match ready!(self.poll_write(cx, buf.chunk())) {
-            Ok(n) => {
-                buf.advance(n);
-                Ok(n)
-            }
-            Err(e) => Err(e),
-        })
-    }
-
-    fn close(mut self, code: u32) {
-        SendStream::reset(&mut self, code).ok();
-    }
-
-    fn priority(&mut self, order: i32) {
-        SendStream::set_priority(self, order).ok();
     }
 }

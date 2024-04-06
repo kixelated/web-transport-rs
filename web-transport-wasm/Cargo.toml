@@ -1,0 +1,34 @@
+[package]
+name = "web-transport-wasm"
+description = "WebTransport WASM bindings"
+authors = ["Luke Curley"]
+repository = "https://github.com/kixelated/web-transport-rs"
+license = "MIT"
+
+version = "0.10.0"
+edition = "2021"
+
+keywords = ["quic", "http3", "webtransport"]
+categories = ["network-programming", "web-programming"]
+
+[dependencies]
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+js-sys = "0.3.69"
+bytes = "1"
+
+[dependencies.web-sys]
+version = "0.3.69"
+features = [
+    "ReadableStream",
+    "ReadableStreamDefaultReader",
+    "ReadableStreamReadResult",
+    "WebTransport",
+    "WebTransportBidirectionalStream",
+    "WebTransportCloseInfo",
+    "WebTransportSendStream",
+    "WebTransportReceiveStream",
+    "WebTransportDatagramDuplexStream",
+    "WritableStream",
+    "WritableStreamDefaultWriter",
+]

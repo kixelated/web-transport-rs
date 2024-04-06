@@ -9,7 +9,7 @@ pub enum SettingsError {
     UnexpectedEnd,
 
     #[error("protocol error: {0}")]
-    ProtoError(#[from] webtransport_proto::SettingsError),
+    ProtoError(#[from] web_transport_proto::SettingsError),
 
     #[error("WebTransport is not supported")]
     WebTransportUnsupported,
@@ -57,9 +57,9 @@ impl Settings {
             // Look at the buffer we've already read.
             let mut limit = io::Cursor::new(&buf);
 
-            let settings = match webtransport_proto::Settings::decode(&mut limit) {
+            let settings = match web_transport_proto::Settings::decode(&mut limit) {
                 Ok(settings) => settings,
-                Err(webtransport_proto::SettingsError::UnexpectedEnd) => continue, // More data needed.
+                Err(web_transport_proto::SettingsError::UnexpectedEnd) => continue, // More data needed.
                 Err(e) => return Err(e.into()),
             };
 
@@ -74,7 +74,7 @@ impl Settings {
     }
 
     async fn open(conn: &quinn::Connection) -> Result<quinn::SendStream, SettingsError> {
-        let mut settings = webtransport_proto::Settings::default();
+        let mut settings = web_transport_proto::Settings::default();
         settings.enable_webtransport(1);
 
         log::debug!("sending SETTINGS frame: {:?}", settings);

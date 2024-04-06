@@ -8,7 +8,7 @@ use anyhow::Context;
 
 use clap::Parser;
 use rustls::Certificate;
-use webtransport_quinn::Session;
+use web_transport_quinn::Session;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -77,7 +77,7 @@ async fn main() -> anyhow::Result<()> {
         .with_single_cert(chain, key)?;
 
     tls_config.max_early_data_size = u32::MAX;
-    tls_config.alpn_protocols = vec![webtransport_quinn::ALPN.to_vec()]; // this one is important
+    tls_config.alpn_protocols = vec![web_transport_quinn::ALPN.to_vec()]; // this one is important
 
     let config = quinn::ServerConfig::with_crypto(std::sync::Arc::new(tls_config));
 
@@ -108,7 +108,7 @@ async fn run_conn(conn: quinn::Connecting) -> anyhow::Result<()> {
     log::info!("established QUIC connection");
 
     // Perform the WebTransport handshake.
-    let request = webtransport_quinn::accept(conn).await?;
+    let request = web_transport_quinn::accept(conn).await?;
     log::info!("received WebTransport request: {}", request.url());
 
     // Accept the session.
