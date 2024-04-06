@@ -9,9 +9,7 @@ pub struct WebError {
 
 impl From<JsValue> for WebError {
     fn from(value: JsValue) -> Self {
-        Self {
-            value,
-        }
+        Self { value }
     }
 }
 
