@@ -1,4 +1,4 @@
-use bytes::Buf;
+use bytes::{Buf, Bytes};
 use js_sys::{Reflect, Uint8Array};
 use web_sys::WebTransportSendStream;
 
@@ -15,17 +15,26 @@ impl SendStream {
         Ok(Self { stream, writer })
     }
 
-    pub async fn write<B: Buf>(&mut self, buf: &mut B) -> Result<usize, WebError> {
+    pub async fn write(&mut self, buf: &[u8]) -> Result<usize, WebError> {
+        self.writer.write(&Uint8Array::from(buf)).await?;
+        Ok(buf.len())
+    }
+
+    pub async fn write_buf<B: Buf>(&mut self, buf: &mut B) -> Result<usize, WebError> {
         let chunk = buf.chunk();
         self.writer.write(&Uint8Array::from(chunk)).await?;
         Ok(chunk.len())
     }
 
-    pub fn close(self, reason: &str) {
+    pub async fn write_chunk(&mut self, buf: Bytes) -> Result<(), WebError> {
+        self.write(&buf).await.map(|_| ())
+    }
+
+    pub fn reset(self, reason: &str) {
         self.writer.close(reason);
     }
 
-    pub fn priority(&mut self, order: i32) {
+    pub fn set_priority(&mut self, order: i32) {
         Reflect::set(&self.stream, &"sendOrder".into(), &order.into())
             .expect("failed to set priority");
     }

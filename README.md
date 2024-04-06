@@ -22,4 +22,4 @@ They are basically UDP packets, except they are encrypted and congestion control
 
 # web-transport-quinn
 
-See [web-transport-quinn](webtransport-quinn) for an implementation that mirrors the [Quinn](https://docs.rs/quinn/latest/quinn/index.html) API.
+See [web-transport-quinn](web-transport-quinn) for an implementation that mirrors the [Quinn](https://docs.rs/quinn/latest/quinn/index.html) API.

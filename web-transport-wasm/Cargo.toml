@@ -2,10 +2,10 @@
 name = "web-transport-wasm"
 description = "WebTransport WASM bindings"
 authors = ["Luke Curley"]
-repository = "https://github.com/kixelated/webtransport-rs"
+repository = "https://github.com/kixelated/web-transport-rs"
 license = "MIT"
 
-version = "0.1.0"
+version = "0.10.0"
 edition = "2021"
 
 keywords = ["quic", "http3", "webtransport"]

@@ -78,21 +78,6 @@ impl Session {
         }
     }
 
-    /// Create a QuicTransport session without a Session ID or HTTP/3 nonsense.
-    /// This is a bit of a hack for MoQ, so it can support both WebTransport and raw QUIC.
-    pub fn new_raw(conn: quinn::Connection) -> Self {
-        Self {
-            conn,
-            session_id: None,
-            header_uni: Default::default(),
-            header_bi: Default::default(),
-            header_datagram: Default::default(),
-            accept: None,
-            settings: None,
-            connect: None,
-        }
-    }
-
     /// Accept a new unidirectional stream. See [`quinn::Connection::accept_uni`].
     pub async fn accept_uni(&self) -> Result<RecvStream, SessionError> {
         if let Some(accept) = &self.accept {
@@ -247,6 +232,23 @@ impl Deref for Session {
 impl fmt::Debug for Session {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.conn.fmt(f)
+    }
+}
+
+impl From<quinn::Connection> for Session {
+    /// Create a QuicTransport session without a Session ID or HTTP/3 nonsense.
+    /// This is a bit of a hack for MoQ, so it can support both WebTransport and raw QUIC.
+    fn from(conn: quinn::Connection) -> Self {
+        Self {
+            conn,
+            session_id: None,
+            header_uni: Default::default(),
+            header_bi: Default::default(),
+            header_datagram: Default::default(),
+            accept: None,
+            settings: None,
+            connect: None,
+        }
     }
 }
 
