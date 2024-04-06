@@ -164,7 +164,7 @@ impl Session {
     /// Datagrams are unreliable and may be dropped or delivered out of order.
     /// The data must be smaller than [`max_datagram_size`](Self::max_datagram_size).
     pub fn send_datagram(&self, data: Bytes) -> Result<(), SessionError> {
-        if self.header_datagram.len() > 0 {
+        if !self.header_datagram.is_empty() {
             // Unfortunately, we need to allocate/copy each datagram because of the Quinn API.
             // Pls go +1 if you care: https://github.com/quinn-rs/quinn/issues/1724
             let mut buf = BytesMut::with_capacity(self.header_datagram.len() + data.len());

@@ -36,6 +36,6 @@ impl Reader {
 impl Drop for Reader {
     fn drop(&mut self) {
         let _ = self.inner.cancel(); // ignore the promise
-        let _ = self.inner.release_lock();
+        self.inner.release_lock();
     }
 }

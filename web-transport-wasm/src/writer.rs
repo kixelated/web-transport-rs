@@ -29,6 +29,6 @@ impl Writer {
 impl Drop for Writer {
     fn drop(&mut self) {
         let _ = self.inner.close(); // ignore the promise
-        let _ = self.inner.release_lock();
+        self.inner.release_lock();
     }
 }
