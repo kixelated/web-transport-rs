@@ -93,7 +93,7 @@ impl RecvStream {
     }
 
     /// Attempt to read from the stream into the given buffer.
-    pub async fn read_buf<B: BufMut>(&mut self, buf: &mut B) -> Result<Option<usize>, ReadError> {
+    pub async fn read_buf<B: BufMut>(&mut self, buf: &mut B) -> Result<bool, ReadError> {
         self.0.read_buf(buf).await.map_err(Into::into)
     }
 
