@@ -1127,7 +1127,7 @@ dependencies = [
 
 [[package]]
 name = "web-transport"
-version = "0.10.0"
+version = "0.1.0"
 dependencies = [
  "bytes",
  "thiserror",
@@ -1137,7 +1137,7 @@ dependencies = [
 
 [[package]]
 name = "web-transport-proto"
-version = "0.6.1"
+version = "0.1.0"
 dependencies = [
  "bytes",
  "http",
@@ -1147,7 +1147,7 @@ dependencies = [
 
 [[package]]
 name = "web-transport-quinn"
-version = "0.10.0"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "bytes",
@@ -1168,7 +1168,7 @@ dependencies = [
 
 [[package]]
 name = "web-transport-wasm"
-version = "0.10.0"
+version = "0.1.0"
 dependencies = [
  "bytes",
  "js-sys",
