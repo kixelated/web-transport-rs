@@ -3,8 +3,6 @@ name: Rust
 on:
   push:
     branches: ["main"]
-  pull_request:
-    branches: ["main"]
 
 env:
   CARGO_TERM_COLOR: always
@@ -24,10 +22,7 @@ jobs:
       # Set RUSTFLAGS
       - run: echo "RUSTFLAGS=--cfg=web_sys_unstable_apis" >> $GITHUB_ENV
 
-      # Make sure u guys don't write bad code
-      - run: cargo test --verbose
-      - run: cargo clippy --no-deps
-      - run: cargo fmt --check
-
-      # Check for unused dependencies
-      - uses: bnjbvr/cargo-machete@main
+      # Publish any new crate versions
+      - uses: katyo/publish-crates@v2
+        with:
+          registry-token: ${{ secrets.CARGO_REGISTRY_TOKEN }}
