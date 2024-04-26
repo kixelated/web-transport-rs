@@ -138,7 +138,7 @@ impl Session {
     ///
     /// This method is used to receive an application datagram sent by the remote
     /// peer over the connection.
-    /// It waits for a datagram to become available and returns the received [`Datagram`].
+    /// It waits for a datagram to become available and returns the received bytes.
     pub async fn read_datagram(&self) -> Result<Bytes, SessionError> {
         let mut datagram = self.conn.read_datagram().await?;
 
@@ -183,10 +183,12 @@ impl Session {
 
     /// Computes the maximum size of datagrams that may be passed to
     /// [`send_datagram`](Self::send_datagram).
-    pub fn max_datagram_size(&self) -> Option<usize> {
-        self.conn
+    pub fn max_datagram_size(&self) -> usize {
+        let mtu = self
+            .conn
             .max_datagram_size()
-            .map(|mtu| mtu.saturating_sub(self.header_datagram.len()))
+            .expect("datagram support is required");
+        mtu.saturating_sub(self.header_datagram.len())
     }
 
     /// Immediately close the connection with an error code and reason. See [`quinn::Connection::close`].
