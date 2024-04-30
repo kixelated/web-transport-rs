@@ -168,7 +168,12 @@ impl Headers {
         encode_prefix(buf, 8, 0, 0);
         encode_prefix(buf, 7, 0, 0);
 
-        for (name, value) in &self.fields {
+        // We must encode pseudo-headers first.
+        // https://datatracker.ietf.org/doc/html/rfc9114#section-4.1.2
+        let mut headers: Vec<_> = self.fields.iter().collect();
+        headers.sort_by_key(|&(key, _)| !key.starts_with(':'));
+
+        for (name, value) in headers.iter() {
             if let Some(index) = StaticTable::find(name, value) {
                 Self::encode_index(buf, index)
             } else if let Some(index) = StaticTable::find_name(name) {
