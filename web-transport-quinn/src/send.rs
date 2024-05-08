@@ -6,7 +6,7 @@ use std::{
 
 use bytes::Bytes;
 
-use crate::{StoppedError, StreamClosed, WriteError};
+use crate::{ClosedStream, StoppedError, WriteError};
 
 /// A stream that can be used to send bytes. See [`quinn::SendStream`].
 ///
@@ -24,7 +24,7 @@ impl SendStream {
 
     /// Abruptly reset the stream with the provided error code. See [`quinn::SendStream::reset`].
     /// This is a u32 with WebTransport because we share the error space with HTTP/3.
-    pub fn reset(&mut self, code: u32) -> Result<(), StreamClosed> {
+    pub fn reset(&mut self, code: u32) -> Result<(), ClosedStream> {
         let code = web_transport_proto::error_to_http3(code);
         let code = quinn::VarInt::try_from(code).unwrap();
         self.stream.reset(code).map_err(Into::into)
@@ -33,8 +33,10 @@ impl SendStream {
     /// Wait until the stream has been stopped and return the error code. See [`quinn::SendStream::stopped`].
     /// Unlike Quinn, this returns None if the code is not a valid WebTransport error code.
     pub async fn stopped(&mut self) -> Result<Option<u32>, StoppedError> {
-        let code = self.stream.stopped().await?;
-        Ok(web_transport_proto::error_from_http3(code.into_inner()))
+        Ok(match self.stream.stopped().await? {
+            Some(code) => web_transport_proto::error_from_http3(code.into_inner()),
+            None => None,
+        })
     }
 
     // Unfortunately, we have to wrap WriteError for a bunch of functions.
@@ -68,15 +70,15 @@ impl SendStream {
     }
 
     /// Wait until all of the data has been written to the stream. See [`quinn::SendStream::finish`].
-    pub async fn finish(&mut self) -> Result<(), WriteError> {
-        self.stream.finish().await.map_err(Into::into)
+    pub fn finish(&mut self) -> Result<(), ClosedStream> {
+        self.stream.finish().map_err(Into::into)
     }
 
-    pub fn set_priority(&self, order: i32) -> Result<(), StreamClosed> {
+    pub fn set_priority(&self, order: i32) -> Result<(), ClosedStream> {
         self.stream.set_priority(order).map_err(Into::into)
     }
 
-    pub fn priority(&self) -> Result<i32, StreamClosed> {
+    pub fn priority(&self) -> Result<i32, ClosedStream> {
         self.stream.priority().map_err(Into::into)
     }
 }
@@ -87,7 +89,8 @@ impl tokio::io::AsyncWrite for SendStream {
         cx: &mut Context<'_>,
         buf: &[u8],
     ) -> Poll<io::Result<usize>> {
-        Pin::new(&mut self.stream).poll_write(cx, buf)
+        // We have to use this syntax because quinn added its own poll_write method.
+        tokio::io::AsyncWrite::poll_write(Pin::new(&mut self.stream), cx, buf)
     }
 
     fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<io::Result<()>> {

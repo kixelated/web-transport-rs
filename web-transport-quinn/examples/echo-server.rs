@@ -2,12 +2,13 @@ use std::{
     fs,
     io::{self, Read},
     path,
+    sync::Arc,
 };
 
 use anyhow::Context;
 
 use clap::Parser;
-use rustls::Certificate;
+use rustls::pki_types::CertificateDer;
 use web_transport_quinn::Session;
 
 #[derive(Parser, Debug)]
@@ -37,10 +38,9 @@ async fn main() -> anyhow::Result<()> {
     let chain = fs::File::open(args.tls_cert).context("failed to open cert file")?;
     let mut chain = io::BufReader::new(chain);
 
-    let chain: Vec<Certificate> = rustls_pemfile::certs(&mut chain)?
-        .into_iter()
-        .map(Certificate)
-        .collect();
+    let chain: Vec<CertificateDer> = rustls_pemfile::certs(&mut chain)
+        .collect::<Result<_, _>>()
+        .context("failed to load certs")?;
 
     anyhow::ensure!(!chain.is_empty(), "could not find certificate");
 
@@ -53,33 +53,20 @@ async fn main() -> anyhow::Result<()> {
 
     // Try to parse a PKCS#8 key
     // -----BEGIN PRIVATE KEY-----
-    let mut keys = rustls_pemfile::pkcs8_private_keys(&mut io::Cursor::new(&buf))?;
-
-    // Try again but with EC keys this time
-    // -----BEGIN EC PRIVATE KEY-----
-    if keys.is_empty() {
-        keys = rustls_pemfile::ec_private_keys(&mut io::Cursor::new(&buf))?
-    };
-
-    anyhow::ensure!(!keys.is_empty(), "could not find private key");
-    anyhow::ensure!(keys.len() < 2, "expected a single key");
-
-    //let certs = certs.into_iter().map(rustls::Certificate).collect();
-    let key = rustls::PrivateKey(keys.remove(0));
+    let key = rustls_pemfile::private_key(&mut io::Cursor::new(&buf))
+        .context("failed to load private key")?
+        .context("missing private key")?;
 
     // Standard Quinn setup
-    let mut tls_config = rustls::ServerConfig::builder()
-        .with_safe_default_cipher_suites()
-        .with_safe_default_kx_groups()
-        .with_protocol_versions(&[&rustls::version::TLS13])
-        .unwrap()
+    let mut config = rustls::ServerConfig::builder()
         .with_no_client_auth()
         .with_single_cert(chain, key)?;
 
-    tls_config.max_early_data_size = u32::MAX;
-    tls_config.alpn_protocols = vec![web_transport_quinn::ALPN.to_vec()]; // this one is important
+    config.max_early_data_size = u32::MAX;
+    config.alpn_protocols = vec![web_transport_quinn::ALPN.to_vec()]; // this one is important
 
-    let config = quinn::ServerConfig::with_crypto(std::sync::Arc::new(tls_config));
+    let config: quinn::crypto::rustls::QuicServerConfig = config.try_into()?;
+    let config = quinn::ServerConfig::with_crypto(Arc::new(config));
 
     log::info!("listening on {}", args.addr);
 
@@ -100,7 +87,7 @@ async fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn run_conn(conn: quinn::Connecting) -> anyhow::Result<()> {
+async fn run_conn(conn: quinn::Incoming) -> anyhow::Result<()> {
     log::info!("received new QUIC connection");
 
     // Wait for the QUIC handshake to complete.

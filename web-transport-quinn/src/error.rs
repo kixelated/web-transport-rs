@@ -39,7 +39,7 @@ pub enum WriteError {
     SessionError(#[from] SessionError),
 
     #[error("stream closed")]
-    Closed,
+    ClosedStream,
 }
 
 impl From<quinn::WriteError> for WriteError {
@@ -51,7 +51,7 @@ impl From<quinn::WriteError> for WriteError {
                     None => WriteError::InvalidStopped(code),
                 }
             }
-            quinn::WriteError::UnknownStream => WriteError::Closed,
+            quinn::WriteError::ClosedStream => WriteError::ClosedStream,
             quinn::WriteError::ConnectionLost(e) => WriteError::SessionError(e.into()),
             quinn::WriteError::ZeroRttRejected => unreachable!("0-RTT not supported"),
         }
@@ -71,7 +71,7 @@ pub enum ReadError {
     InvalidReset(quinn::VarInt),
 
     #[error("stream already closed")]
-    Closed,
+    ClosedStream,
 
     #[error("ordered read on unordered stream")]
     IllegalOrderedRead,
@@ -88,7 +88,7 @@ impl From<quinn::ReadError> for ReadError {
             }
             quinn::ReadError::ConnectionLost(e) => ReadError::SessionError(e.into()),
             quinn::ReadError::IllegalOrderedRead => ReadError::IllegalOrderedRead,
-            quinn::ReadError::UnknownStream => ReadError::Closed,
+            quinn::ReadError::ClosedStream => ReadError::ClosedStream,
             quinn::ReadError::ZeroRttRejected => unreachable!("0-RTT not supported"),
         }
     }
@@ -98,7 +98,7 @@ impl From<quinn::ReadError> for ReadError {
 #[derive(Clone, Error, Debug)]
 pub enum ReadExactError {
     #[error("finished early")]
-    FinishedEarly,
+    FinishedEarly(usize),
 
     #[error("read error: {0}")]
     ReadError(#[from] ReadError),
@@ -107,7 +107,7 @@ pub enum ReadExactError {
 impl From<quinn::ReadExactError> for ReadExactError {
     fn from(e: quinn::ReadExactError) -> Self {
         match e {
-            quinn::ReadExactError::FinishedEarly => ReadExactError::FinishedEarly,
+            quinn::ReadExactError::FinishedEarly(size) => ReadExactError::FinishedEarly(size),
             quinn::ReadExactError::ReadError(e) => ReadExactError::ReadError(e.into()),
         }
     }
@@ -132,14 +132,14 @@ impl From<quinn::ReadToEndError> for ReadToEndError {
     }
 }
 
-/// An error indicating the stream was already closed. Same as [`quinn::UnknownStream`] but a less confusing name.
+/// An error indicating the stream was already closed.
 #[derive(Clone, Error, Debug)]
 #[error("stream closed")]
-pub struct StreamClosed;
+pub struct ClosedStream;
 
-impl From<quinn::UnknownStream> for StreamClosed {
-    fn from(_: quinn::UnknownStream) -> Self {
-        StreamClosed
+impl From<quinn::ClosedStream> for ClosedStream {
+    fn from(_: quinn::ClosedStream) -> Self {
+        ClosedStream
     }
 }
 
@@ -157,7 +157,6 @@ impl From<quinn::StoppedError> for StoppedError {
     fn from(e: quinn::StoppedError) -> Self {
         match e {
             quinn::StoppedError::ConnectionLost(e) => StoppedError::SessionError(e.into()),
-            quinn::StoppedError::UnknownStream => StoppedError::Closed,
             quinn::StoppedError::ZeroRttRejected => unreachable!("0-RTT not supported"),
         }
     }

@@ -16,9 +16,9 @@ categories = ["network-programming", "web-programming"]
 [dependencies]
 web-transport-proto = { path = "../web-transport-proto", version = "0.1.1" }
 
-quinn = "0.10"
+quinn = "0.11"
 bytes = "1"
-quinn-proto = "0.10"
+quinn-proto = "0.11"
 http = "0.2"
 thiserror = "1"
 futures = "0.3"
@@ -31,7 +31,8 @@ tokio = { version = "1", default-features = false }
 [dev-dependencies]
 anyhow = "1"
 tokio = { version = "1", features = ["full"] }
-rustls = { version = "0.21", features = ["dangerous_configuration", "quic"] }
+rustls = "0.23"
 env_logger = "0.10"
 clap = { version = "4", features = ["derive"] }
-rustls-pemfile = "1.0.2"
+rustls-pemfile = "2"
+quinn = { version = "0.11", features = ["ring", "rustls"] }

@@ -146,8 +146,9 @@ impl Session {
 
         if let Some(session_id) = self.session_id {
             // We have to check and strip the session ID from the datagram.
-            let actual_id = VarInt::decode(&mut cursor)
-                .map_err(|_| WebTransportError::ReadError(quinn::ReadExactError::FinishedEarly))?;
+            let actual_id = VarInt::decode(&mut cursor).map_err(|_| {
+                WebTransportError::ReadError(quinn::ReadExactError::FinishedEarly(0))
+            })?;
             if actual_id != session_id {
                 return Err(WebTransportError::UnknownSession.into());
             }

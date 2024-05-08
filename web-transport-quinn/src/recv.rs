@@ -21,7 +21,7 @@ impl RecvStream {
 
     /// Tell the other end to stop sending data with the given error code. See [`quinn::RecvStream::stop`].
     /// This is a u32 with WebTransport since it shares the error space with HTTP/3.
-    pub fn stop(&mut self, code: u32) -> Result<(), quinn::UnknownStream> {
+    pub fn stop(&mut self, code: u32) -> Result<(), quinn::ClosedStream> {
         let code = web_transport_proto::error_to_http3(code);
         let code = quinn::VarInt::try_from(code).unwrap();
         self.inner.stop(code)
