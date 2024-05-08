@@ -39,9 +39,12 @@ async fn main() -> anyhow::Result<()> {
 
     // Standard quinn setup, accepting only the given certificate.
     // You should use system roots in production.
-    let mut config = rustls::ClientConfig::builder()
-        .with_root_certificates(roots)
-        .with_no_client_auth();
+    let mut config = rustls::ClientConfig::builder_with_provider(Arc::new(
+        rustls::crypto::ring::default_provider(),
+    ))
+    .with_protocol_versions(&[&rustls::version::TLS13])?
+    .with_root_certificates(roots)
+    .with_no_client_auth();
     config.alpn_protocols = vec![web_transport_quinn::ALPN.to_vec()]; // this one is important
 
     let config: quinn::crypto::rustls::QuicClientConfig = config.try_into()?;
