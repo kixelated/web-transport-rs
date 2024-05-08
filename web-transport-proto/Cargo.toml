@@ -5,7 +5,7 @@ authors = ["Luke Curley"]
 repository = "https://github.com/kixelated/web-transport-rs"
 license = "MIT"
 
-version = "0.1.1"
+version = "0.2.0"
 edition = "2021"
 
 keywords = ["quic", "http3", "webtransport"]
@@ -14,7 +14,7 @@ categories = ["network-programming", "web-programming"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-http = "0.2"
+http = "1"
 bytes = "1"
 thiserror = "1"
 url = "^2.4.0"

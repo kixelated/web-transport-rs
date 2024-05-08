@@ -1,8 +1,8 @@
-use std::{fs, io, path};
+use std::{fs, io, path, sync::Arc};
 
 use anyhow::Context;
 use clap::Parser;
-use rustls::Certificate;
+use rustls::pki_types::CertificateDer;
 use url::Url;
 
 #[derive(Parser, Debug)]
@@ -28,29 +28,29 @@ async fn main() -> anyhow::Result<()> {
     let chain = fs::File::open(args.tls_cert).context("failed to open cert file")?;
     let mut chain = io::BufReader::new(chain);
 
-    let chain: Vec<Certificate> = rustls_pemfile::certs(&mut chain)?
-        .into_iter()
-        .map(Certificate)
-        .collect();
+    let chain: Vec<CertificateDer> = rustls_pemfile::certs(&mut chain)
+        .collect::<Result<_, _>>()
+        .context("failed to load certs")?;
 
     anyhow::ensure!(!chain.is_empty(), "could not find certificate");
 
     let mut roots = rustls::RootCertStore::empty();
-    roots.add(&chain[0])?;
+    roots.add_parsable_certificates(chain);
 
     // Standard quinn setup, accepting only the given certificate.
     // You should use system roots in production.
-    let mut tls_config = rustls::ClientConfig::builder()
-        .with_safe_defaults()
-        .with_root_certificates(roots)
-        .with_no_client_auth();
+    let mut config = rustls::ClientConfig::builder_with_provider(Arc::new(
+        rustls::crypto::ring::default_provider(),
+    ))
+    .with_protocol_versions(&[&rustls::version::TLS13])?
+    .with_root_certificates(roots)
+    .with_no_client_auth();
+    config.alpn_protocols = vec![web_transport_quinn::ALPN.to_vec()]; // this one is important
 
-    tls_config.alpn_protocols = vec![web_transport_quinn::ALPN.to_vec()]; // this one is important
+    let config: quinn::crypto::rustls::QuicClientConfig = config.try_into()?;
+    let config = quinn::ClientConfig::new(Arc::new(config));
 
-    let config = quinn::ClientConfig::new(std::sync::Arc::new(tls_config));
-
-    let addr = "[::]:0".parse()?;
-    let mut client = quinn::Endpoint::client(addr)?;
+    let mut client = quinn::Endpoint::client("[::]:0".parse()?)?;
     client.set_default_client_config(config);
 
     log::info!("connecting to {}", args.url);
@@ -71,7 +71,7 @@ async fn main() -> anyhow::Result<()> {
     log::info!("sent: {}", msg);
 
     // Shut down the send stream.
-    send.finish().await?;
+    send.finish()?;
 
     // Read back the message.
     let msg = recv.read_to_end(1024).await?;
