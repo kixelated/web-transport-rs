@@ -59,7 +59,7 @@ impl Session {
     }
 
     /// Close the connection immediately with a code and reason.
-    pub fn close(self, code: u32, reason: &str) {
+    pub fn close(&mut self, code: u32, reason: &str) {
         self.0.close(code, reason.as_bytes())
     }
 
