@@ -20,7 +20,7 @@ impl Writer {
         Ok(())
     }
 
-    pub fn close(self, reason: &str) {
+    pub fn close(&mut self, reason: &str) {
         let str = JsValue::from_str(reason);
         let _ = self.inner.abort_with_reason(&str); // ignore the promise
     }

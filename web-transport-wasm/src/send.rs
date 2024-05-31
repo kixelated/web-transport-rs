@@ -30,7 +30,7 @@ impl SendStream {
         self.write(&buf).await.map(|_| ())
     }
 
-    pub fn reset(self, reason: &str) {
+    pub fn reset(&mut self, reason: &str) {
         self.writer.close(reason);
     }
 

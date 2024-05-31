@@ -74,7 +74,7 @@ impl Session {
         Ok(data.to_vec().into())
     }
 
-    pub fn close(self, code: u32, reason: &str) {
+    pub fn close(&mut self, code: u32, reason: &str) {
         let mut info = WebTransportCloseInfo::new();
         info.close_code(code);
         info.reason(reason);

@@ -64,7 +64,7 @@ impl RecvStream {
         Ok(Some(data))
     }
 
-    pub fn stop(self, reason: &str) {
+    pub fn stop(&mut self, reason: &str) {
         self.reader.close(reason);
     }
 }

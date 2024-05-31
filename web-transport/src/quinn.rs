@@ -59,7 +59,7 @@ impl Session {
     }
 
     /// Close the connection immediately with a code and reason.
-    pub fn close(self, code: u32, reason: &str) {
+    pub fn close(&mut self, code: u32, reason: &str) {
         self.0.close(code, reason.as_bytes())
     }
 
@@ -110,7 +110,7 @@ impl SendStream {
     }
 
     /// Send an immediate reset code, closing the stream.
-    pub fn reset(mut self, code: u32) {
+    pub fn reset(&mut self, code: u32) {
         self.0.reset(code).ok();
     }
 }
@@ -150,7 +150,7 @@ impl RecvStream {
     }
 
     /// Send a `STOP_SENDING` QUIC code.
-    pub fn stop(mut self, code: u32) {
+    pub fn stop(&mut self, code: u32) {
         self.0.stop(code).ok();
     }
 }
