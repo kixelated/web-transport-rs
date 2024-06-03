@@ -1,4 +1,4 @@
-name: Release Plz
+name: release
 
 permissions:
   pull-requests: write
@@ -10,8 +10,7 @@ on:
       - main
 
 jobs:
-  release-plz:
-    name: Release-plz
+  release:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
