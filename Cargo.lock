@@ -1428,6 +1428,7 @@ name = "web-transport"
 version = "0.3.0"
 dependencies = [
  "bytes",
+ "js-sys",
  "thiserror",
  "web-transport-quinn",
  "web-transport-wasm",
@@ -1466,10 +1467,11 @@ dependencies = [
 
 [[package]]
 name = "web-transport-wasm"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "bytes",
  "js-sys",
+ "thiserror",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",

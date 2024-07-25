@@ -3,7 +3,7 @@ use wasm_bindgen::{JsCast, JsValue};
 use wasm_bindgen_futures::JsFuture;
 use web_sys::{ReadableStream, ReadableStreamDefaultReader, ReadableStreamReadResult};
 
-use crate::WebError;
+use crate::{ReadError, WebErrorExt};
 
 // Wrapper around ReadableStream
 pub struct Reader {
@@ -11,23 +11,27 @@ pub struct Reader {
 }
 
 impl Reader {
-    pub fn new(stream: &ReadableStream) -> Result<Self, WebError> {
+    pub fn new(stream: &ReadableStream) -> Result<Self, ReadError> {
         let inner = stream.get_reader().unchecked_into();
         Ok(Self { inner })
     }
 
-    pub async fn read<T: JsCast>(&mut self) -> Result<Option<T>, WebError> {
-        let result: ReadableStreamReadResult = JsFuture::from(self.inner.read()).await?.into();
+    pub async fn read<T: JsCast>(&mut self) -> Result<Option<T>, ReadError> {
+        let result: ReadableStreamReadResult =
+            JsFuture::from(self.inner.read()).await.throw()?.into();
 
-        if Reflect::get(&result, &"done".into())?.is_truthy() {
+        if Reflect::get(&result, &"done".into()).throw()?.is_truthy() {
             return Ok(None);
         }
 
-        let res = Reflect::get(&result, &"value".into())?.dyn_into()?;
+        let res = Reflect::get(&result, &"value".into())
+            .throw()?
+            .unchecked_into();
+
         Ok(Some(res))
     }
 
-    pub fn close(self, reason: &str) {
+    pub fn close(&mut self, reason: &str) {
         let str = JsValue::from_str(reason);
         let _ = self.inner.cancel_with_reason(&str); // ignore the promise
     }

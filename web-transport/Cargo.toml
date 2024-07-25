@@ -18,7 +18,8 @@ bytes = "1"
 thiserror = "1"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-web-transport-wasm = { version = "0.1", path = "../web-transport-wasm" }
+web-transport-wasm = { version = "0.1.1", path = "../web-transport-wasm" }
+js-sys = "0.3"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 web-transport-quinn = { version = "0.3", path = "../web-transport-quinn" }

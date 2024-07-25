@@ -1,34 +1,46 @@
-use std::{error, fmt};
+#[derive(Clone, Debug, thiserror::Error)]
+#[error("web error: {0:?}")]
+pub struct WebError(js_sys::Error);
 
-use wasm_bindgen::JsValue;
-
-#[derive(Debug)]
-pub struct WebError {
-    value: JsValue,
-}
-
-impl From<JsValue> for WebError {
-    fn from(value: JsValue) -> Self {
-        Self { value }
+impl From<js_sys::Error> for WebError {
+    fn from(e: js_sys::Error) -> Self {
+        Self(e)
     }
 }
 
-impl error::Error for WebError {}
-
-impl fmt::Display for WebError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        // Print out the JsValue as a string
-        match self.value.as_string() {
-            Some(s) => write!(f, "{}", s),
-            None => write!(f, "{:?}", self.value),
-        }
+impl From<wasm_bindgen::JsValue> for WebError {
+    fn from(e: wasm_bindgen::JsValue) -> Self {
+        Self(e.into())
     }
 }
 
-impl From<&str> for WebError {
-    fn from(value: &str) -> Self {
-        Self {
-            value: value.into(),
-        }
+pub trait WebErrorExt<T> {
+    fn throw(self) -> Result<T, WebError>;
+}
+
+impl<T, E: Into<WebError>> WebErrorExt<T> for Result<T, E> {
+    fn throw(self) -> Result<T, WebError> {
+        self.map_err(Into::into)
     }
+}
+
+#[derive(Clone, Debug, thiserror::Error)]
+#[error("read error: {0:?}")]
+pub struct ReadError(#[from] WebError);
+
+#[derive(Clone, Debug, thiserror::Error)]
+#[error("write error: {0:?}")]
+pub struct WriteError(#[from] WebError);
+
+#[derive(Clone, Debug, thiserror::Error)]
+pub enum SessionError {
+    // TODO distinguish between different kinds of errors
+    #[error("read error: {0}")]
+    Read(#[from] ReadError),
+
+    #[error("write error: {0}")]
+    Write(#[from] WriteError),
+
+    #[error("web error: {0}")]
+    Web(#[from] WebError),
 }

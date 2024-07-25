@@ -5,33 +5,39 @@ use bytes::{Buf, BufMut, Bytes};
 /// The session can be cloned to create multiple handles.
 /// The session will be closed with on drop.
 #[derive(Clone)]
-pub struct Session(web_transport_quinn::Session);
+pub struct Session {
+    inner: web_transport_quinn::Session,
+}
 
 impl Session {
+    pub async fn connect(_url: &str) -> Result<Self, SessionError> {
+        unimplemented!("TODO use a default Quinn config")
+    }
+
     /// Block until the peer creates a new unidirectional stream.
     pub async fn accept_uni(&mut self) -> Result<RecvStream, SessionError> {
-        self.0.accept_uni().await.map(RecvStream)
+        self.inner.accept_uni().await.map(RecvStream::new)
     }
 
     /// Block until the peer creates a new bidirectional stream.
     pub async fn accept_bi(&mut self) -> Result<(SendStream, RecvStream), SessionError> {
-        self.0
+        self.inner
             .accept_bi()
             .await
-            .map(|(s, r)| (SendStream(s), RecvStream(r)))
+            .map(|(s, r)| (SendStream::new(s), RecvStream::new(r)))
     }
 
     /// Open a new bidirectional stream, which may block when there are too many concurrent streams.
     pub async fn open_bi(&mut self) -> Result<(SendStream, RecvStream), SessionError> {
-        self.0
+        self.inner
             .open_bi()
             .await
-            .map(|(s, r)| (SendStream(s), RecvStream(r)))
+            .map(|(s, r)| (SendStream::new(s), RecvStream::new(r)))
     }
 
     /// Open a new unidirectional stream, which may block when there are too many concurrent streams.
     pub async fn open_uni(&mut self) -> Result<SendStream, SessionError> {
-        self.0.open_uni().await.map(SendStream)
+        self.inner.open_uni().await.map(SendStream::new)
     }
 
     /// Send a datagram over the network.
@@ -45,34 +51,35 @@ impl Session {
     /// - ???
     pub async fn send_datagram(&mut self, payload: Bytes) -> Result<(), SessionError> {
         // NOTE: This is not async, but we need to make it async to match the wasm implementation.
-        self.0.send_datagram(payload)
+        self.inner.send_datagram(payload)
     }
 
     /// The maximum size of a datagram that can be sent.
     pub async fn max_datagram_size(&self) -> usize {
-        self.0.max_datagram_size()
+        self.inner.max_datagram_size()
     }
 
     /// Receive a datagram over the network.
     pub async fn recv_datagram(&mut self) -> Result<Bytes, SessionError> {
-        self.0.read_datagram().await
+        self.inner.read_datagram().await
     }
 
     /// Close the connection immediately with a code and reason.
-    pub fn close(self, code: u32, reason: &str) {
-        self.0.close(code, reason.as_bytes())
+    pub fn close(&mut self, code: u32, reason: &str) {
+        self.inner.close(code, reason.as_bytes())
     }
 
     /// Block until the connection is closed.
-    pub async fn closed(&self) -> SessionError {
-        self.0.closed().await
+    pub async fn closed(&self) -> Result<(), SessionError> {
+        // TODO correctly parse the code/reason
+        Err(self.inner.closed().await)
     }
 }
 
 /// Convert a `web_transport_quinn::Session` into a `web_transport::Session`.
 impl From<web_transport_quinn::Session> for Session {
     fn from(session: web_transport_quinn::Session) -> Self {
-        Session(session)
+        Session { inner: session }
     }
 }
 
@@ -80,17 +87,23 @@ impl From<web_transport_quinn::Session> for Session {
 ///
 /// QUIC streams have flow control, which means the send rate is limited by the peer's receive window.
 /// The stream will be closed with a graceful FIN when dropped.
-pub struct SendStream(web_transport_quinn::SendStream);
+pub struct SendStream {
+    inner: web_transport_quinn::SendStream,
+}
 
 impl SendStream {
+    fn new(inner: web_transport_quinn::SendStream) -> Self {
+        Self { inner }
+    }
+
     /// Write some of the buffer to the stream, potentailly blocking on flow control.
     pub async fn write(&mut self, buf: &[u8]) -> Result<usize, WriteError> {
-        self.0.write(buf).await
+        self.inner.write(buf).await
     }
 
     /// Write some of the given buffer to the stream, potentially blocking on flow control.
     pub async fn write_buf<B: Buf>(&mut self, buf: &mut B) -> Result<usize, WriteError> {
-        let size = self.0.write(buf.chunk()).await?;
+        let size = self.inner.write(buf.chunk()).await?;
         buf.advance(size);
         Ok(size)
     }
@@ -99,19 +112,19 @@ impl SendStream {
     ///
     /// More efficient for some implementations, as it avoids a copy
     pub async fn write_chunk(&mut self, buf: Bytes) -> Result<(), WriteError> {
-        self.0.write_chunk(buf).await
+        self.inner.write_chunk(buf).await
     }
 
     /// Set the stream's priority.
     ///
     /// Streams with lower values will be sent first, but are not guaranteed to arrive first.
     pub fn set_priority(&mut self, order: i32) {
-        self.0.set_priority(order).ok();
+        self.inner.set_priority(order).ok();
     }
 
     /// Send an immediate reset code, closing the stream.
-    pub fn reset(mut self, code: u32) {
-        self.0.reset(code).ok();
+    pub fn reset(&mut self, code: u32) {
+        self.inner.reset(code).ok();
     }
 }
 
@@ -119,12 +132,18 @@ impl SendStream {
 ///
 /// All bytes are flushed in order and the stream is flow controlled.
 /// The stream will be closed with STOP_SENDING code=0 when dropped.
-pub struct RecvStream(web_transport_quinn::RecvStream);
+pub struct RecvStream {
+    inner: web_transport_quinn::RecvStream,
+}
 
 impl RecvStream {
+    fn new(inner: web_transport_quinn::RecvStream) -> Self {
+        Self { inner }
+    }
+
     /// Read some data into the provided buffer.
     pub async fn read(&mut self, buf: &mut [u8]) -> Result<Option<usize>, ReadError> {
-        self.0.read(buf).await
+        self.inner.read(buf).await
     }
 
     /// Read some data into the provided buffer.
@@ -132,7 +151,7 @@ impl RecvStream {
         let dst = buf.chunk_mut();
         let dst = unsafe { &mut *(dst as *mut _ as *mut [u8]) };
 
-        let size = match self.0.read(dst).await? {
+        let size = match self.inner.read(dst).await? {
             Some(size) => size,
             None => return Ok(false),
         };
@@ -146,12 +165,16 @@ impl RecvStream {
     ///
     /// More efficient for some implementations, as it avoids a copy
     pub async fn read_chunk(&mut self, max: usize) -> Result<Option<Bytes>, ReadError> {
-        Ok(self.0.read_chunk(max, true).await?.map(|chunk| chunk.bytes))
+        Ok(self
+            .inner
+            .read_chunk(max, true)
+            .await?
+            .map(|chunk| chunk.bytes))
     }
 
     /// Send a `STOP_SENDING` QUIC code.
-    pub fn stop(mut self, code: u32) {
-        self.0.stop(code).ok();
+    pub fn stop(&mut self, code: u32) {
+        self.inner.stop(code).ok();
     }
 }
 
