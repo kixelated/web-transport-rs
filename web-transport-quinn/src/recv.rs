@@ -60,14 +60,6 @@ impl RecvStream {
     pub async fn read_to_end(&mut self, size_limit: usize) -> Result<Vec<u8>, ReadToEndError> {
         self.inner.read_to_end(size_limit).await.map_err(Into::into)
     }
-
-    /// Return a unique stream identifier.
-    ///
-    /// NOTE: This is not part of the WebTransport API, but is useful for debugging.
-    /// This is not the same as QUIC's stream ID; don't rely on it for anything.
-    pub fn id(&self) -> u64 {
-        self.inner.id().index()
-    }
 }
 
 impl tokio::io::AsyncRead for RecvStream {
