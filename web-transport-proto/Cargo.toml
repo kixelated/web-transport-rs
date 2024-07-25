@@ -17,4 +17,4 @@ categories = ["network-programming", "web-programming"]
 http = "1"
 bytes = "1"
 thiserror = "1"
-url = "^2.4.0"
+url = "2"
