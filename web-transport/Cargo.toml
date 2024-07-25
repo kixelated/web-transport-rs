@@ -19,6 +19,8 @@ thiserror = "1"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 web-transport-wasm = { version = "0.1.1", path = "../web-transport-wasm" }
+js-sys = "0.3"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 web-transport-quinn = { version = "0.2.2", path = "../web-transport-quinn" }
+quinn = "0.10"

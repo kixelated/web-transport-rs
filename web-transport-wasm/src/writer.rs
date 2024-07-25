@@ -2,7 +2,7 @@ use wasm_bindgen::{JsCast, JsValue};
 use wasm_bindgen_futures::JsFuture;
 use web_sys::{WritableStream, WritableStreamDefaultWriter};
 
-use crate::WebError;
+use crate::{WebErrorExt, WriteError};
 
 // Wrapper around WritableStream
 pub struct Writer {
@@ -10,13 +10,15 @@ pub struct Writer {
 }
 
 impl Writer {
-    pub fn new(stream: &WritableStream) -> Result<Self, WebError> {
-        let inner = stream.get_writer()?.unchecked_into();
+    pub fn new(stream: &WritableStream) -> Result<Self, WriteError> {
+        let inner = stream.get_writer().throw()?.unchecked_into();
         Ok(Self { inner })
     }
 
-    pub async fn write(&mut self, v: &JsValue) -> Result<(), WebError> {
-        JsFuture::from(self.inner.write_with_chunk(v)).await?;
+    pub async fn write(&mut self, v: &JsValue) -> Result<(), WriteError> {
+        JsFuture::from(self.inner.write_with_chunk(v))
+            .await
+            .throw()?;
         Ok(())
     }
 
