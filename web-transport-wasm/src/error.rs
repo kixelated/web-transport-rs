@@ -1,3 +1,5 @@
+use wasm_bindgen::prelude::*;
+
 #[derive(Clone, Debug, thiserror::Error)]
 #[error("web error: {0:?}")]
 pub struct WebError(js_sys::Error);
@@ -43,4 +45,15 @@ pub enum SessionError {
 
     #[error("web error: {0}")]
     Web(#[from] WebError),
+}
+
+pub(crate) trait PromiseExt {
+    fn ignore(self);
+}
+
+impl PromiseExt for js_sys::Promise {
+    // Ignore the result of the promise by using an empty catch.
+    fn ignore(self) {
+        let _ = self.catch(&Closure::wrap(Box::new(|_: JsValue| {})));
+    }
 }

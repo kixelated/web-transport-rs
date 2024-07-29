@@ -1,8 +1,8 @@
-use wasm_bindgen::{JsCast, JsValue};
+use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
 use web_sys::{WritableStream, WritableStreamDefaultWriter};
 
-use crate::{WebErrorExt, WriteError};
+use crate::{PromiseExt, WebErrorExt, WriteError};
 
 // Wrapper around WritableStream
 pub struct Writer {
@@ -24,13 +24,13 @@ impl Writer {
 
     pub fn close(&mut self, reason: &str) {
         let str = JsValue::from_str(reason);
-        let _ = self.inner.abort_with_reason(&str); // ignore the promise
+        self.inner.abort_with_reason(&str).ignore();
     }
 }
 
 impl Drop for Writer {
     fn drop(&mut self) {
-        let _ = self.inner.close(); // ignore the promise
+        self.inner.close().ignore();
         self.inner.release_lock();
     }
 }

@@ -1,9 +1,9 @@
 use js_sys::Reflect;
-use wasm_bindgen::{JsCast, JsValue};
+use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
 use web_sys::{ReadableStream, ReadableStreamDefaultReader, ReadableStreamReadResult};
 
-use crate::{ReadError, WebErrorExt};
+use crate::{PromiseExt, ReadError, WebErrorExt};
 
 // Wrapper around ReadableStream
 pub struct Reader {
@@ -33,13 +33,13 @@ impl Reader {
 
     pub fn close(&mut self, reason: &str) {
         let str = JsValue::from_str(reason);
-        let _ = self.inner.cancel_with_reason(&str); // ignore the promise
+        self.inner.cancel_with_reason(&str).ignore();
     }
 }
 
 impl Drop for Reader {
     fn drop(&mut self) {
-        let _ = self.inner.cancel(); // ignore the promise
+        self.inner.cancel().ignore();
         self.inner.release_lock();
     }
 }

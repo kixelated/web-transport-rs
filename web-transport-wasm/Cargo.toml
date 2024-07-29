@@ -25,11 +25,13 @@ features = [
     "ReadableStreamDefaultReader",
     "ReadableStreamReadResult",
     "WebTransport",
+    "WebTransportOptions",
     "WebTransportBidirectionalStream",
     "WebTransportCloseInfo",
     "WebTransportSendStream",
     "WebTransportReceiveStream",
     "WebTransportDatagramDuplexStream",
+    "WebTransportCongestionControl",
     "WritableStream",
     "WritableStreamDefaultWriter",
 ]

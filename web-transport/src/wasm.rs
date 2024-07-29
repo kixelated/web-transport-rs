@@ -1,13 +1,10 @@
 use bytes::{Buf, BufMut, Bytes};
 
+// Export the Wasm implementation to simplify Cargo.toml
+pub use web_transport_wasm as wasm;
+
 #[derive(Clone)]
 pub struct Session(web_transport_wasm::Session);
-
-pub async fn connect(url: &str) -> Result<Session, SessionError> {
-    web_transport_wasm::Session::connect(url)
-        .await
-        .map(Into::into)
-}
 
 impl Session {
     pub async fn accept_uni(&mut self) -> Result<RecvStream, SessionError> {
@@ -39,8 +36,8 @@ impl Session {
     }
 
     /// Close the connection immediately
-    pub fn close(&mut self, info: Closed) {
-        self.0.close(info)
+    pub fn close(&mut self, code: u32, reason: &str) {
+        self.0.close(code, reason)
     }
 
     pub async fn closed(&self) -> Result<Closed, SessionError> {

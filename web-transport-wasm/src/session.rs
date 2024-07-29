@@ -1,8 +1,9 @@
 use bytes::Bytes;
-use js_sys::{Reflect, Uint8Array};
+use js_sys::{Object, Reflect, Uint8Array};
 use wasm_bindgen_futures::JsFuture;
 use web_sys::{
-    WebTransportBidirectionalStream, WebTransportCloseInfo, WebTransportReceiveStream,
+    WebTransport, WebTransportBidirectionalStream, WebTransportCloseInfo,
+    WebTransportCongestionControl, WebTransportOptions, WebTransportReceiveStream,
     WebTransportSendStream,
 };
 
@@ -10,15 +11,15 @@ use crate::{Reader, RecvStream, SendStream, SessionError, WebErrorExt, Writer};
 
 #[derive(Clone)]
 pub struct Session {
-    inner: web_sys::WebTransport,
+    inner: WebTransport,
 }
 
 impl Session {
-    pub async fn connect(url: &str) -> Result<Self, SessionError> {
-        let inner = web_sys::WebTransport::new(url).throw()?;
-        JsFuture::from(inner.ready()).await.throw()?;
-
-        Ok(Self { inner })
+    pub fn new<T: Into<String>>(url: T) -> SessionBuilder {
+        SessionBuilder {
+            url: url.into(),
+            options: WebTransportOptions::new(),
+        }
     }
 
     pub async fn accept_uni(&mut self) -> Result<RecvStream, SessionError> {
@@ -75,10 +76,10 @@ impl Session {
         Ok(data.to_vec().into())
     }
 
-    pub fn close(&mut self, closed: Closed) {
+    pub fn close(&mut self, code: u32, reason: &str) {
         let mut info = WebTransportCloseInfo::new();
-        info.close_code(closed.code);
-        info.reason(&closed.reason);
+        info.close_code(code);
+        info.reason(reason);
         self.inner.close_with_close_info(&info);
     }
 
@@ -101,7 +102,68 @@ impl Session {
     }
 }
 
+pub struct SessionBuilder {
+    url: String,
+    options: WebTransportOptions,
+}
+
+// Check https://rustwasm.github.io/wasm-bindgen/api/web_sys/struct.WebTransportOptions.html
+impl SessionBuilder {
+    pub fn new<T: Into<String>>(url: T) -> Self {
+        Self {
+            url: url.into(),
+            options: WebTransportOptions::new(),
+        }
+    }
+
+    /// Determine if the client/server is allowed to pool connections.
+    /// (Hint) Don't set it to true.
+    pub fn allow_pooling(mut self, val: bool) -> Self {
+        self.options.allow_pooling(val);
+        self
+    }
+
+    /// Determine if HTTP/2 is a valid fallback.
+    pub fn require_unreliable(mut self, val: bool) -> Self {
+        self.options.require_unreliable(val);
+        self
+    }
+
+    /// Hint at the required congestion control algorithm
+    pub fn congestion_control(mut self, control: CongestionControl) -> Self {
+        self.options.congestion_control(control);
+        self
+    }
+
+    /// Supply sha256 hashes for accepted certificates, instead of using a root CA
+    pub fn server_certificate_hashes(mut self, hashes: Vec<Vec<u8>>) -> Self {
+        // expected: [ { algorithm: "sha-256", value: hashValue }, ... ]
+        let hashes = hashes
+            .into_iter()
+            .map(|hash| {
+                let hash = Uint8Array::from(&hash[..]);
+                let obj = Object::new();
+                Reflect::set(&obj, &"algorithm".into(), &"sha-256".into()).unwrap();
+                Reflect::set(&obj, &"value".into(), &hash.into()).unwrap();
+                obj
+            })
+            .collect::<js_sys::Array>();
+
+        self.options.server_certificate_hashes(&hashes);
+        self
+    }
+
+    pub async fn connect(self) -> Result<Session, SessionError> {
+        let inner = WebTransport::new_with_options(&self.url, &self.options).throw()?;
+        JsFuture::from(inner.ready()).await.throw()?;
+
+        Ok(Session { inner })
+    }
+}
+
 pub struct Closed {
     pub code: u32,
     pub reason: String,
 }
+
+pub type CongestionControl = WebTransportCongestionControl;

@@ -1,5 +1,8 @@
 use bytes::{Buf, BufMut, Bytes};
 
+// Export the Quinn implementation to simplify Cargo.toml
+pub use web_transport_quinn as quinn;
+
 /// A WebTransport Session, able to accept/create streams and send/recv datagrams.
 ///
 /// The session can be cloned to create multiple handles.
