@@ -1,4 +1,5 @@
 use std::{
+    fmt,
     future::{poll_fn, Future},
     io::Cursor,
     ops::Deref,
@@ -228,6 +229,12 @@ impl Deref for Session {
 
     fn deref(&self) -> &Self::Target {
         &self.conn
+    }
+}
+
+impl fmt::Debug for Session {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.conn.fmt(f)
     }
 }
 

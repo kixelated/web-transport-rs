@@ -13,10 +13,6 @@ pub struct Session {
 }
 
 impl Session {
-    pub async fn connect(_url: &str) -> Result<Self, SessionError> {
-        unimplemented!("TODO use a default Quinn config")
-    }
-
     /// Block until the peer creates a new unidirectional stream.
     pub async fn accept_uni(&mut self) -> Result<RecvStream, SessionError> {
         self.inner.accept_uni().await.map(RecvStream::new)

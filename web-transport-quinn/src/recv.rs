@@ -60,6 +60,8 @@ impl RecvStream {
     pub async fn read_to_end(&mut self, size_limit: usize) -> Result<Vec<u8>, ReadToEndError> {
         self.inner.read_to_end(size_limit).await.map_err(Into::into)
     }
+
+    // We purposely don't expose the stream ID or 0RTT because it's not valid with WebTransport
 }
 
 impl tokio::io::AsyncRead for RecvStream {
