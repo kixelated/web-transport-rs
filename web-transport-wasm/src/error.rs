@@ -54,6 +54,8 @@ pub(crate) trait PromiseExt {
 impl PromiseExt for js_sys::Promise {
     // Ignore the result of the promise by using an empty catch.
     fn ignore(self) {
-        let _ = self.catch(&Closure::wrap(Box::new(|_: JsValue| {})));
+        let closure = Closure::wrap(Box::new(|_: JsValue| {}) as Box<dyn FnMut(JsValue)>);
+        let _ = self.catch(&closure);
+        closure.forget();
     }
 }

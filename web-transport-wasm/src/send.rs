@@ -21,9 +21,10 @@ impl SendStream {
     }
 
     pub async fn write_buf<B: Buf>(&mut self, buf: &mut B) -> Result<usize, WriteError> {
-        let chunk = buf.chunk();
-        self.writer.write(&Uint8Array::from(chunk)).await?;
-        Ok(chunk.len())
+        let size = self.write(buf.chunk()).await?;
+        buf.advance(size);
+
+        Ok(size)
     }
 
     pub async fn write_chunk(&mut self, buf: Bytes) -> Result<(), WriteError> {

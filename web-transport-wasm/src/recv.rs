@@ -22,21 +22,27 @@ impl RecvStream {
     }
 
     pub async fn read(&mut self, buf: &mut [u8]) -> Result<Option<usize>, ReadError> {
-        Ok(self.read_chunk(buf.len()).await?.map(|chunk| {
-            let size = chunk.len();
-            buf[..size].copy_from_slice(&chunk);
-            size
-        }))
+        let chunk = match self.read_chunk(buf.len()).await? {
+            Some(chunk) => chunk,
+            None => return Ok(None),
+        };
+
+        let size = chunk.len();
+        buf[..size.into()].copy_from_slice(&chunk);
+        Ok(Some(size))
     }
 
-    pub async fn read_buf<B: BufMut>(&mut self, buf: &mut B) -> Result<bool, ReadError> {
-        Ok(match self.read_chunk(buf.remaining_mut()).await? {
-            Some(chunk) => {
-                buf.put(chunk);
-                true
-            }
-            None => false,
-        })
+    pub async fn read_buf<B: BufMut>(&mut self, buf: &mut B) -> Result<Option<usize>, ReadError> {
+        let chunk = match self.read_chunk(buf.remaining_mut()).await? {
+            Some(chunk) => chunk,
+            None => return Ok(None),
+        };
+
+        let size = chunk.len();
+        buf.put(chunk);
+        unsafe { buf.advance_mut(size.into()) };
+
+        Ok(Some(size))
     }
 
     pub async fn read_chunk(&mut self, max: usize) -> Result<Option<Bytes>, ReadError> {

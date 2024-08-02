@@ -150,18 +150,18 @@ impl RecvStream {
     }
 
     /// Read some data into the provided buffer.
-    pub async fn read_buf<B: BufMut>(&mut self, buf: &mut B) -> Result<bool, ReadError> {
+    pub async fn read_buf<B: BufMut>(&mut self, buf: &mut B) -> Result<Option<usize>, ReadError> {
         let dst = buf.chunk_mut();
         let dst = unsafe { &mut *(dst as *mut _ as *mut [u8]) };
 
         let size = match self.inner.read(dst).await? {
             Some(size) => size,
-            None => return Ok(false),
+            None => return Ok(None),
         };
 
         unsafe { buf.advance_mut(size) };
 
-        Ok(true)
+        Ok(Some(size))
     }
 
     /// Read the next chunk of data with the provided maximum size.
