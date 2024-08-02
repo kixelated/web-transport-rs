@@ -1,5 +1,8 @@
 use bytes::{Buf, BufMut, Bytes};
 
+// Export the Wasm implementation to simplify Cargo.toml
+pub use web_transport_wasm as wasm;
+
 #[derive(Clone)]
 pub struct Session(web_transport_wasm::Session);
 
@@ -33,12 +36,12 @@ impl Session {
     }
 
     /// Close the connection immediately
-    pub fn close(self, code: u32, reason: &str) {
+    pub fn close(&mut self, code: u32, reason: &str) {
         self.0.close(code, reason)
     }
 
-    pub async fn closed(&self) -> SessionError {
-        self.0.closed().await.into()
+    pub async fn closed(&self) -> Result<Closed, SessionError> {
+        self.0.closed().await
     }
 
     /// Send a datagram.
@@ -50,6 +53,8 @@ impl Session {
         self.0.recv_datagram().await.map_err(Into::into)
     }
 }
+
+pub type Closed = web_transport_wasm::Closed;
 
 impl From<web_transport_wasm::Session> for Session {
     fn from(session: web_transport_wasm::Session) -> Self {
@@ -80,7 +85,7 @@ impl SendStream {
     }
 
     /// Send a QUIC reset code.
-    pub fn reset(self, code: u32) {
+    pub fn reset(&mut self, code: u32) {
         self.0.reset(&code.to_string())
     }
 }
@@ -93,7 +98,7 @@ impl RecvStream {
     }
 
     /// Attempt to read from the stream into the given buffer.
-    pub async fn read_buf<B: BufMut>(&mut self, buf: &mut B) -> Result<bool, ReadError> {
+    pub async fn read_buf<B: BufMut>(&mut self, buf: &mut B) -> Result<Option<usize>, ReadError> {
         self.0.read_buf(buf).await.map_err(Into::into)
     }
 
@@ -103,19 +108,11 @@ impl RecvStream {
     }
 
     /// Send a `STOP_SENDING` QUIC code.
-    pub fn stop(self, code: u32) {
+    pub fn stop(&mut self, code: u32) {
         self.0.stop(&code.to_string())
     }
 }
 
-#[derive(Debug, thiserror::Error)]
-#[error(transparent)]
-pub struct SessionError(#[from] web_transport_wasm::WebError);
-
-#[derive(Debug, thiserror::Error)]
-#[error(transparent)]
-pub struct WriteError(#[from] web_transport_wasm::WebError);
-
-#[derive(Debug, thiserror::Error)]
-#[error(transparent)]
-pub struct ReadError(#[from] web_transport_wasm::WebError);
+pub type SessionError = web_transport_wasm::SessionError;
+pub type WriteError = web_transport_wasm::WriteError;
+pub type ReadError = web_transport_wasm::ReadError;

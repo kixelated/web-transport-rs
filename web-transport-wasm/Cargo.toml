@@ -5,7 +5,7 @@ authors = ["Luke Curley"]
 repository = "https://github.com/kixelated/web-transport-rs"
 license = "MIT"
 
-version = "0.1.1"
+version = "0.2.0"
 edition = "2021"
 
 keywords = ["quic", "http3", "webtransport"]
@@ -16,6 +16,8 @@ wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"
 js-sys = "0.3.69"
 bytes = "1"
+thiserror = "1"
+url = "2"
 
 [dependencies.web-sys]
 version = "0.3.69"
@@ -24,11 +26,13 @@ features = [
     "ReadableStreamDefaultReader",
     "ReadableStreamReadResult",
     "WebTransport",
+    "WebTransportOptions",
     "WebTransportBidirectionalStream",
     "WebTransportCloseInfo",
     "WebTransportSendStream",
     "WebTransportReceiveStream",
     "WebTransportDatagramDuplexStream",
+    "WebTransportCongestionControl",
     "WritableStream",
     "WritableStreamDefaultWriter",
 ]
