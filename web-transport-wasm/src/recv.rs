@@ -40,7 +40,6 @@ impl RecvStream {
 
         let size = chunk.len();
         buf.put(chunk);
-        unsafe { buf.advance_mut(size.into()) };
 
         Ok(Some(size))
     }
