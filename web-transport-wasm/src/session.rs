@@ -1,5 +1,6 @@
 use bytes::Bytes;
 use js_sys::{Object, Reflect, Uint8Array};
+use url::Url;
 use wasm_bindgen_futures::JsFuture;
 use web_sys::{
     WebTransport, WebTransportBidirectionalStream, WebTransportCloseInfo,
@@ -15,11 +16,12 @@ pub struct Session {
 }
 
 impl Session {
-    pub fn new<T: Into<String>>(url: T) -> SessionBuilder {
-        SessionBuilder {
-            url: url.into(),
-            options: WebTransportOptions::new(),
-        }
+    pub fn create(url: Url) -> SessionBuilder {
+        SessionBuilder::new(url)
+    }
+
+    pub async fn connect(url: Url) -> Result<Session, SessionError> {
+        Self::create(url).connect().await
     }
 
     pub async fn accept_uni(&mut self) -> Result<RecvStream, SessionError> {
@@ -103,15 +105,15 @@ impl Session {
 }
 
 pub struct SessionBuilder {
-    url: String,
+    url: Url,
     options: WebTransportOptions,
 }
 
 // Check https://rustwasm.github.io/wasm-bindgen/api/web_sys/struct.WebTransportOptions.html
 impl SessionBuilder {
-    pub fn new<T: Into<String>>(url: T) -> Self {
+    pub fn new(url: Url) -> Self {
         Self {
-            url: url.into(),
+            url,
             options: WebTransportOptions::new(),
         }
     }
@@ -154,7 +156,7 @@ impl SessionBuilder {
     }
 
     pub async fn connect(self) -> Result<Session, SessionError> {
-        let inner = WebTransport::new_with_options(&self.url, &self.options).throw()?;
+        let inner = WebTransport::new_with_options(self.url.as_ref(), &self.options).throw()?;
         JsFuture::from(inner.ready()).await.throw()?;
 
         Ok(Session { inner })

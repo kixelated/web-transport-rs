@@ -28,7 +28,7 @@ impl RecvStream {
         };
 
         let size = chunk.len();
-        buf[..size.into()].copy_from_slice(&chunk);
+        buf[..size].copy_from_slice(&chunk);
         Ok(Some(size))
     }
 
