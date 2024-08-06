@@ -33,6 +33,9 @@ features = [
     "WebTransportReceiveStream",
     "WebTransportDatagramDuplexStream",
     "WebTransportCongestionControl",
+    "WebTransportError",
+    "WebTransportErrorSource",
+    "WebTransportErrorOptions",
     "WritableStream",
     "WritableStreamDefaultWriter",
 ]

@@ -4,11 +4,10 @@ use url::Url;
 use wasm_bindgen_futures::JsFuture;
 use web_sys::{
     WebTransport, WebTransportBidirectionalStream, WebTransportCloseInfo,
-    WebTransportCongestionControl, WebTransportOptions, WebTransportReceiveStream,
-    WebTransportSendStream,
+    WebTransportCongestionControl, WebTransportOptions, WebTransportSendStream,
 };
 
-use crate::{Reader, RecvStream, SendStream, SessionError, WebErrorExt, Writer};
+use crate::{Error, Reader, RecvStream, SendStream, Writer};
 
 #[derive(Clone)]
 pub struct Session {
@@ -16,25 +15,30 @@ pub struct Session {
 }
 
 impl Session {
-    pub fn create(url: Url) -> SessionBuilder {
+    pub fn build(url: Url) -> SessionBuilder {
         SessionBuilder::new(url)
     }
 
-    pub async fn connect(url: Url) -> Result<Session, SessionError> {
-        Self::create(url).connect().await
+    pub async fn connect(url: Url) -> Result<Session, Error> {
+        Self::build(url).connect().await
     }
 
-    pub async fn accept_uni(&mut self) -> Result<RecvStream, SessionError> {
+    pub async fn accept_uni(&mut self) -> Result<RecvStream, Error> {
         let mut reader = Reader::new(&self.inner.incoming_unidirectional_streams())?;
-        let stream: WebTransportReceiveStream = reader.read().await?.expect("closed without error");
-        let recv = RecvStream::new(stream)?;
-        Ok(recv)
+
+        match reader.read().await? {
+            Some(stream) => Ok(RecvStream::new(stream)?),
+            None => Err(self.closed().await),
+        }
     }
 
-    pub async fn accept_bi(&mut self) -> Result<(SendStream, RecvStream), SessionError> {
+    pub async fn accept_bi(&mut self) -> Result<(SendStream, RecvStream), Error> {
         let mut reader = Reader::new(&self.inner.incoming_bidirectional_streams())?;
-        let stream: WebTransportBidirectionalStream =
-            reader.read().await?.expect("closed without error");
+
+        let stream: WebTransportBidirectionalStream = match reader.read().await? {
+            Some(stream) => stream,
+            None => return Err(self.closed().await),
+        };
 
         let send = SendStream::new(stream.writable())?;
         let recv = RecvStream::new(stream.readable())?;
@@ -42,11 +46,10 @@ impl Session {
         Ok((send, recv))
     }
 
-    pub async fn open_bi(&mut self) -> Result<(SendStream, RecvStream), SessionError> {
+    pub async fn open_bi(&mut self) -> Result<(SendStream, RecvStream), Error> {
         let stream: WebTransportBidirectionalStream =
             JsFuture::from(self.inner.create_bidirectional_stream())
-                .await
-                .throw()?
+                .await?
                 .into();
 
         let send = SendStream::new(stream.writable())?;
@@ -55,24 +58,23 @@ impl Session {
         Ok((send, recv))
     }
 
-    pub async fn open_uni(&mut self) -> Result<SendStream, SessionError> {
+    pub async fn open_uni(&mut self) -> Result<SendStream, Error> {
         let stream: WebTransportSendStream =
             JsFuture::from(self.inner.create_unidirectional_stream())
-                .await
-                .throw()?
+                .await?
                 .into();
 
         let send = SendStream::new(stream)?;
         Ok(send)
     }
 
-    pub async fn send_datagram(&mut self, payload: Bytes) -> Result<(), SessionError> {
+    pub async fn send_datagram(&mut self, payload: Bytes) -> Result<(), Error> {
         let mut writer = Writer::new(&self.inner.datagrams().writable())?;
         writer.write(&Uint8Array::from(payload.as_ref())).await?;
         Ok(())
     }
 
-    pub async fn recv_datagram(&mut self) -> Result<Bytes, SessionError> {
+    pub async fn recv_datagram(&mut self) -> Result<Bytes, Error> {
         let mut reader = Reader::new(&self.inner.datagrams().readable())?;
         let data: Uint8Array = reader.read().await?.unwrap_or_default();
         Ok(data.to_vec().into())
@@ -85,22 +87,27 @@ impl Session {
         self.inner.close_with_close_info(&info);
     }
 
-    pub async fn closed(&self) -> Result<Closed, SessionError> {
-        let result: js_sys::Object = JsFuture::from(self.inner.closed()).await.throw()?.into();
+    pub async fn closed(&self) -> Error {
+        self.closed_inner().await.unwrap_err()
+    }
+
+    async fn closed_inner(&self) -> Result<(), Error> {
+        let result: js_sys::Object = JsFuture::from(self.inner.closed()).await?.into();
 
         // For some reason, WebTransportCloseInfo only contains setters
-        let info = Closed {
-            code: Reflect::get(&result, &"closeCode".into())
-                .throw()?
-                .as_f64()
-                .unwrap() as u32,
-            reason: Reflect::get(&result, &"reason".into())
-                .throw()?
-                .as_string()
-                .unwrap(),
-        };
+        let code = Reflect::get(&result, &"closeCode".into())?
+            .as_f64()
+            .unwrap() as u8;
+        let reason = Reflect::get(&result, &"reason".into())?
+            .as_string()
+            .unwrap();
 
-        Ok(info)
+        let mut options = web_sys::WebTransportErrorOptions::new();
+        options.source(web_sys::WebTransportErrorSource::Session);
+        options.stream_error_code(Some(code));
+
+        let err = web_sys::WebTransportError::new_with_message_and_options(&reason, &options)?;
+        Err(Error::Session(err))
     }
 }
 
@@ -155,17 +162,12 @@ impl SessionBuilder {
         self
     }
 
-    pub async fn connect(self) -> Result<Session, SessionError> {
-        let inner = WebTransport::new_with_options(self.url.as_ref(), &self.options).throw()?;
-        JsFuture::from(inner.ready()).await.throw()?;
+    pub async fn connect(self) -> Result<Session, Error> {
+        let inner = WebTransport::new_with_options(self.url.as_ref(), &self.options)?;
+        JsFuture::from(inner.ready()).await?;
 
         Ok(Session { inner })
     }
-}
-
-pub struct Closed {
-    pub code: u32,
-    pub reason: String,
 }
 
 pub type CongestionControl = WebTransportCongestionControl;

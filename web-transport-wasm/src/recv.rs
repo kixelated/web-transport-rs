@@ -4,7 +4,7 @@ use bytes::{BufMut, Bytes, BytesMut};
 use js_sys::Uint8Array;
 use web_sys::WebTransportReceiveStream;
 
-use crate::{ReadError, Reader};
+use crate::{Error, Reader};
 
 pub struct RecvStream {
     reader: Reader,
@@ -12,7 +12,7 @@ pub struct RecvStream {
 }
 
 impl RecvStream {
-    pub(super) fn new(stream: WebTransportReceiveStream) -> Result<Self, ReadError> {
+    pub(super) fn new(stream: WebTransportReceiveStream) -> Result<Self, Error> {
         let reader = Reader::new(&stream)?;
 
         Ok(Self {
@@ -21,7 +21,7 @@ impl RecvStream {
         })
     }
 
-    pub async fn read(&mut self, buf: &mut [u8]) -> Result<Option<usize>, ReadError> {
+    pub async fn read(&mut self, buf: &mut [u8]) -> Result<Option<usize>, Error> {
         let chunk = match self.read_chunk(buf.len()).await? {
             Some(chunk) => chunk,
             None => return Ok(None),
@@ -32,7 +32,7 @@ impl RecvStream {
         Ok(Some(size))
     }
 
-    pub async fn read_buf<B: BufMut>(&mut self, buf: &mut B) -> Result<Option<usize>, ReadError> {
+    pub async fn read_buf<B: BufMut>(&mut self, buf: &mut B) -> Result<Option<usize>, Error> {
         let chunk = match self.read_chunk(buf.remaining_mut()).await? {
             Some(chunk) => chunk,
             None => return Ok(None),
@@ -44,7 +44,7 @@ impl RecvStream {
         Ok(Some(size))
     }
 
-    pub async fn read_chunk(&mut self, max: usize) -> Result<Option<Bytes>, ReadError> {
+    pub async fn read_chunk(&mut self, max: usize) -> Result<Option<Bytes>, Error> {
         if !self.buffer.is_empty() {
             let size = cmp::min(max, self.buffer.len());
             let data = self.buffer.split_to(size).freeze();
@@ -66,6 +66,12 @@ impl RecvStream {
     }
 
     pub fn stop(&mut self, reason: &str) {
-        self.reader.close(reason);
+        self.reader.abort(reason);
+    }
+}
+
+impl Drop for RecvStream {
+    fn drop(&mut self) {
+        self.reader.abort("dropped");
     }
 }
