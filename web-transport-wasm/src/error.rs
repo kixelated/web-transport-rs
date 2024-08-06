@@ -1,51 +1,41 @@
 use wasm_bindgen::prelude::*;
 
 #[derive(Clone, Debug, thiserror::Error)]
-#[error("web error: {0:?}")]
-pub struct WebError(js_sys::Error);
+pub enum Error {
+    #[error("webtransport session error: {0:?}")]
+    Session(web_sys::WebTransportError),
 
-impl From<js_sys::Error> for WebError {
-    fn from(e: js_sys::Error) -> Self {
-        Self(e)
+    #[error("webtransport stream error: {0:?}")]
+    Stream(web_sys::WebTransportError),
+
+    #[error("unknown error: {0:?}")]
+    Unknown(JsValue),
+}
+
+impl Error {
+    pub fn code(&self) -> Option<u8> {
+        match self {
+            Error::Session(e) | Error::Stream(e) => e.stream_error_code(),
+            Error::Unknown(_) => None,
+        }
     }
 }
 
-impl From<wasm_bindgen::JsValue> for WebError {
-    fn from(e: wasm_bindgen::JsValue) -> Self {
-        Self(e.into())
+impl From<JsValue> for Error {
+    fn from(v: JsValue) -> Self {
+        if let Some(e) = v.dyn_ref::<web_sys::WebTransportError>().cloned() {
+            match e.source() {
+                web_sys::WebTransportErrorSource::Stream => Error::Stream(e),
+                web_sys::WebTransportErrorSource::Session => Error::Session(e),
+                _ => Error::Unknown(v),
+            }
+        } else {
+            Error::Unknown(v)
+        }
     }
 }
 
-pub trait WebErrorExt<T> {
-    fn throw(self) -> Result<T, WebError>;
-}
-
-impl<T, E: Into<WebError>> WebErrorExt<T> for Result<T, E> {
-    fn throw(self) -> Result<T, WebError> {
-        self.map_err(Into::into)
-    }
-}
-
-#[derive(Clone, Debug, thiserror::Error)]
-#[error("read error: {0:?}")]
-pub struct ReadError(#[from] WebError);
-
-#[derive(Clone, Debug, thiserror::Error)]
-#[error("write error: {0:?}")]
-pub struct WriteError(#[from] WebError);
-
-#[derive(Clone, Debug, thiserror::Error)]
-pub enum SessionError {
-    // TODO distinguish between different kinds of errors
-    #[error("read error: {0}")]
-    Read(#[from] ReadError),
-
-    #[error("write error: {0}")]
-    Write(#[from] WriteError),
-
-    #[error("web error: {0}")]
-    Web(#[from] WebError),
-}
+pub type Result = std::result::Result<(), Error>;
 
 pub(crate) trait PromiseExt {
     fn ignore(self);
