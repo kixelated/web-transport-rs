@@ -1,6 +1,6 @@
 [package]
 name = "web-transport"
-description = "WebTransport client and server - Placeholder"
+description = "Generic WebTransport client and server"
 authors = ["Luke Curley"]
 repository = "https://github.com/kixelated/web-transport-rs"
 license = "MIT"

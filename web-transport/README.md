@@ -18,5 +18,4 @@ This crate provides a generic WebTransport implementation depending on the platf
 It shortly became impossible when trying to add WASM support because of `!Send`.
 
 So this crate switches the implementation based on the underlying platform.
-As an added benefit, you no longer need to litter your code with
-generics. I got pretty fed up constantly writing `moq_transport<S: web_transport_generic::Session>`.
+As an added benefit, you no longer need to litter your code with generics.
