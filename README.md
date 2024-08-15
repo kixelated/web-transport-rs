@@ -1,4 +1,6 @@
-![discord](https://img.shields.io/discord/1124083992740761730)
+[![crates.io](https://img.shields.io/crates/v/web-transport)](https://crates.io/crates/web-transport)
+[![docs.rs](https://img.shields.io/docsrs/web-transport)](https://docs.rs/web-transport)
+[![discord](https://img.shields.io/discord/1124083992740761730)](https://discord.gg/FCYF3p99mr)
 
 # WebTransport
 WebTransport is a protocol for client-server communication over QUIC.
