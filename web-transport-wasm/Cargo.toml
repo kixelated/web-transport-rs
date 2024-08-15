@@ -5,7 +5,7 @@ authors = ["Luke Curley"]
 repository = "https://github.com/kixelated/web-transport-rs"
 license = "MIT OR Apache-2.0"
 
-version = "0.3.2"
+version = "0.3.3"
 edition = "2021"
 
 keywords = ["quic", "http3", "webtransport"]
@@ -39,3 +39,6 @@ features = [
     "WritableStream",
     "WritableStreamDefaultWriter",
 ]
+
+[package.metadata.docs.rs]
+rustdoc-args = ["--cfg=web_sys_unstable_apis"]
