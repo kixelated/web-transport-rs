@@ -1,5 +1,6 @@
-# WebTransport
+![discord](https://img.shields.io/discord/1124083992740761730)
 
+# WebTransport
 WebTransport is a protocol for client-server communication over QUIC.
 It's [available in the browser](https://caniuse.com/webtransport) as an alternative to HTTP and WebSockets.
 
