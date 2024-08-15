@@ -1,3 +1,7 @@
+//! WebTransport wrapper for WebAssembly.
+//!
+//! This crate wraps the WebTransport API and provides ergonomic Rust bindings.
+//! Some liberties have been taken to make the API more Rust-like and closer to native.
 mod error;
 mod reader;
 mod recv;

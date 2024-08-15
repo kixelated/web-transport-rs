@@ -1,8 +1,10 @@
-[![Documentation](https://docs.rs/web-transport-quinn/badge.svg)](https://docs.rs/web-transport-quinn/)
-[![Crates.io](https://img.shields.io/crates/v/web-transport-quinn.svg)](https://crates.io/crates/web-transport-quinn)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE-MIT)
+![crates.io](https://img.shields.io/crates/v/web-transport-quinn)
+![docs.rs](https://img.shields.io/docsrs/web-transport-quinn)
+![discord](https://img.shields.io/discord/1124083992740761730)
 
 # web-transport-quinn
+A wrapper around the Quinn API, abstracting away the annoying HTTP/3 internals.
+Provides a QUIC-like API but with web support!
 
 ## Example
 

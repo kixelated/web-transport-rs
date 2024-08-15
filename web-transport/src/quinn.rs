@@ -142,11 +142,16 @@ impl RecvStream {
     }
 
     /// Read some data into the provided buffer.
+    ///
+    /// The number of bytes read is returned, or None if the stream is closed.
     pub async fn read(&mut self, buf: &mut [u8]) -> Result<Option<usize>, Error> {
         Ok(self.inner.read(buf).await?)
     }
 
     /// Read some data into the provided buffer.
+    ///
+    /// The number of bytes read is returned, or None if the stream is closed.
+    /// The buffer will be advanced by the number of bytes read.
     pub async fn read_buf<B: BufMut>(&mut self, buf: &mut B) -> Result<Option<usize>, Error> {
         let dst = buf.chunk_mut();
         let dst = unsafe { &mut *(dst as *mut _ as *mut [u8]) };
@@ -163,7 +168,7 @@ impl RecvStream {
 
     /// Read the next chunk of data with the provided maximum size.
     ///
-    /// More efficient for some implementations, as it avoids a copy
+    /// This returns a chunk of data instead of copying, which may be more efficient.
     pub async fn read_chunk(&mut self, max: usize) -> Result<Option<Bytes>, Error> {
         Ok(self
             .inner
@@ -178,6 +183,10 @@ impl RecvStream {
     }
 }
 
+/// A WebTransport error.
+///
+/// The source can either be a session error or a stream error.
+/// TODO This interface is currently not generic.
 #[derive(Debug, thiserror::Error, Clone)]
 pub enum Error {
     #[error("session error: {0}")]

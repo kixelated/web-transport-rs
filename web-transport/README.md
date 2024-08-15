@@ -1,6 +1,6 @@
-[![Documentation](https://docs.rs/web-transport/badge.svg)](https://docs.rs/web-transport/)
-[![Crates.io](https://img.shields.io/crates/v/web-transport.svg)](https://crates.io/crates/web-transport)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE-MIT)
+![crates.io](https://img.shields.io/crates/v/web-transport)
+![docs.rs](https://img.shields.io/docsrs/web-transport)
+![discord](https://img.shields.io/discord/1124083992740761730)
 
 # web-transport
 
