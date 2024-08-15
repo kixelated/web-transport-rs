@@ -1,6 +1,6 @@
-![crates.io](https://img.shields.io/crates/v/web-transport-quinn)
-![docs.rs](https://img.shields.io/docsrs/web-transport-quinn)
-![discord](https://img.shields.io/discord/1124083992740761730)
+[![crates.io](https://img.shields.io/crates/v/web-transport-quinn)](https://crates.io/crates/web-transport-quinn)
+[![docs.rs](https://img.shields.io/docsrs/web-transport-quinn)](https://docs.rs/web-transport-quinn)
+[![discord](https://img.shields.io/discord/1124083992740761730)](https://discord.gg/FCYF3p99mr)
 
 # web-transport-quinn
 A wrapper around the Quinn API, abstracting away the annoying HTTP/3 internals.

@@ -3,7 +3,7 @@ name = "web-transport"
 description = "Generic WebTransport client and server"
 authors = ["Luke Curley"]
 repository = "https://github.com/kixelated/web-transport-rs"
-license = "MIT"
+license = "MIT OR Apache-2.0"
 
 version = "0.5.0"
 edition = "2021"
