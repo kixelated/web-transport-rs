@@ -141,11 +141,15 @@ impl RecvStream {
         Self { inner }
     }
 
-    /// Read some data into the provided buffer.
+    /// Read the next chunk of data with the provided maximum size.
     ///
-    /// The number of bytes read is returned, or None if the stream is closed.
-    pub async fn read(&mut self, buf: &mut [u8]) -> Result<Option<usize>, Error> {
-        Ok(self.inner.read(buf).await?)
+    /// This returns a chunk of data instead of copying, which may be more efficient.
+    pub async fn read(&mut self, max: usize) -> Result<Option<Bytes>, Error> {
+        Ok(self
+            .inner
+            .read_chunk(max, true)
+            .await?
+            .map(|chunk| chunk.bytes))
     }
 
     /// Read some data into the provided buffer.
@@ -164,17 +168,6 @@ impl RecvStream {
         unsafe { buf.advance_mut(size) };
 
         Ok(Some(size))
-    }
-
-    /// Read the next chunk of data with the provided maximum size.
-    ///
-    /// This returns a chunk of data instead of copying, which may be more efficient.
-    pub async fn read_chunk(&mut self, max: usize) -> Result<Option<Bytes>, Error> {
-        Ok(self
-            .inner
-            .read_chunk(max, true)
-            .await?
-            .map(|chunk| chunk.bytes))
     }
 
     /// Send a `STOP_SENDING` QUIC code.

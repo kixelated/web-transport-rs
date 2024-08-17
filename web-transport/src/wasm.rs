@@ -79,18 +79,14 @@ impl SendStream {
 pub struct RecvStream(web_transport_wasm::RecvStream);
 
 impl RecvStream {
-    pub async fn read(&mut self, buf: &mut [u8]) -> Result<Option<usize>, Error> {
-        self.0.read(buf).await
+    /// Attempt to read a chunk of unbuffered data.
+    pub async fn read(&mut self, max: usize) -> Result<Option<Bytes>, Error> {
+        self.0.read(max).await
     }
 
     /// Attempt to read from the stream into the given buffer.
     pub async fn read_buf<B: BufMut>(&mut self, buf: &mut B) -> Result<Option<usize>, Error> {
         self.0.read_buf(buf).await
-    }
-
-    /// Attempt to read a chunk of unbuffered data.
-    pub async fn read_chunk(&mut self, max: usize) -> Result<Option<Bytes>, Error> {
-        self.0.read_chunk(max).await
     }
 
     /// Send a `STOP_SENDING` QUIC code.
