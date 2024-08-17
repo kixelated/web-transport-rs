@@ -96,20 +96,19 @@ impl SendStream {
         Self { inner }
     }
 
-    /// Write *al** of the buffer to the stream, returning the number of bytes written.
+    /// Write *all* of the buffer to the stream.
     pub async fn write(&mut self, buf: &[u8]) -> Result<(), Error> {
         self.inner.write_all(buf).await?;
         Ok(())
     }
 
-    /// Write all of the given buffer to the stream, advancing the internal position.
+    /// Write the given buffer to the stream, advancing the internal position.
     ///
     /// This may be polled to perform partial writes.
     pub async fn write_buf<B: Buf>(&mut self, buf: &mut B) -> Result<(), Error> {
         while buf.has_remaining() {
-            let chunk = buf.chunk();
-            self.write(chunk).await?;
-            buf.advance(chunk.len());
+            let size = self.inner.write(buf.chunk()).await?;
+            buf.advance(size);
         }
 
         Ok(())
