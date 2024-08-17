@@ -16,38 +16,23 @@ impl SendStream {
         Ok(Self { stream, writer })
     }
 
-    /// Write some of the given buffer to the stream.
-    ///
-    /// Returns the non-zero number of bytes written.
-    pub async fn write(&mut self, buf: &[u8]) -> Result<usize, Error> {
-        self.writer.write(&Uint8Array::from(buf)).await?;
-        Ok(buf.len())
-    }
-
-    /// Write all of the given buffer to the stream.
-    pub async fn write_all(&mut self, buf: &[u8]) -> Result<(), Error> {
+    /// Write *all* of the given bytes to the stream.
+    pub async fn write(&mut self, buf: &[u8]) -> Result<(), Error> {
         let mut buf = std::io::Cursor::new(buf);
-        self.write_all_buf(&mut buf).await
+        self.write_buf(&mut buf).await
     }
 
-    /// Write some of the given buffer to the stream.
+    /// Write the given buffer to the stream.
     ///
-    /// Returns the non-zero number of bytes written.
     /// Advances the buffer by the number of bytes written.
-    pub async fn write_buf<B: Buf>(&mut self, buf: &mut B) -> Result<usize, Error> {
-        let size = self.write(buf.chunk()).await?;
-        buf.advance(size);
-
-        Ok(size)
-    }
-
-    /// Write all of the given buffer to the stream.
-    ///
-    /// Advances the buffer by the number of bytes written, including any partial writes.
-    pub async fn write_all_buf<B: Buf>(&mut self, buf: &mut B) -> Result<(), Error> {
+    /// May be polled/timed out to perform partial writes.
+    pub async fn write_buf<B: Buf>(&mut self, buf: &mut B) -> Result<(), Error> {
         while buf.has_remaining() {
-            self.write_buf(buf).await?;
+            let chunk = buf.chunk();
+            self.writer.write(&Uint8Array::from(chunk)).await?;
+            buf.advance(chunk.len());
         }
+
         Ok(())
     }
 

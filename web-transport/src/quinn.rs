@@ -96,23 +96,23 @@ impl SendStream {
         Self { inner }
     }
 
-    /// Write some of the buffer to the stream, potentailly blocking on flow control.
-    pub async fn write(&mut self, buf: &[u8]) -> Result<usize, Error> {
-        Ok(self.inner.write(buf).await?)
+    /// Write *al** of the buffer to the stream, returning the number of bytes written.
+    pub async fn write(&mut self, buf: &[u8]) -> Result<(), Error> {
+        self.inner.write_all(buf).await?;
+        Ok(())
     }
 
-    /// Write some of the given buffer to the stream, potentially blocking on flow control.
-    pub async fn write_buf<B: Buf>(&mut self, buf: &mut B) -> Result<usize, Error> {
-        let size = self.inner.write(buf.chunk()).await?;
-        buf.advance(size);
-        Ok(size)
-    }
-
-    /// Write the entire chunk of bytes to the stream.
+    /// Write all of the given buffer to the stream, advancing the internal position.
     ///
-    /// More efficient for some implementations, as it avoids a copy
-    pub async fn write_chunk(&mut self, buf: Bytes) -> Result<(), Error> {
-        Ok(self.inner.write_chunk(buf).await?)
+    /// This may be polled to perform partial writes.
+    pub async fn write_buf<B: Buf>(&mut self, buf: &mut B) -> Result<(), Error> {
+        while buf.has_remaining() {
+            let chunk = buf.chunk();
+            self.write(chunk).await?;
+            buf.advance(chunk.len());
+        }
+
+        Ok(())
     }
 
     /// Set the stream's priority.
