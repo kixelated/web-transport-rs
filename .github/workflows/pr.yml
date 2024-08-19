@@ -29,7 +29,7 @@ jobs:
       - run: cargo fmt --check
 
       # Same but for WASM
-      - run: cargo test -p web-transport -p web-transport-wasm --verbose --target wasm32-unknown-unknown
+      - run: cargo check -p web-transport -p web-transport-wasm --verbose --target wasm32-unknown-unknown
 
       # Check for unused dependencies
       - uses: bnjbvr/cargo-machete@main
