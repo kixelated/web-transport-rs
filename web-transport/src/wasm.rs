@@ -54,19 +54,16 @@ impl From<web_transport_wasm::Session> for Session {
 pub struct SendStream(web_transport_wasm::SendStream);
 
 impl SendStream {
-    pub async fn write(&mut self, buf: &[u8]) -> Result<usize, Error> {
+    /// Write all of the given data to the stream.
+    pub async fn write(&mut self, buf: &[u8]) -> Result<(), Error> {
         self.0.write(buf).await
     }
 
     /// Write some of the given buffer to the stream.
-    pub async fn write_buf<B: Buf>(&mut self, buf: &mut B) -> Result<usize, Error> {
+    ///
+    /// Advances the internal position by the number of bytes written.
+    pub async fn write_buf<B: Buf>(&mut self, buf: &mut B) -> Result<(), Error> {
         self.0.write_buf(buf).await
-    }
-
-    /// Write the entire chunk of bytes to the stream.
-    /// More efficient for some implementations, as it avoids a copy
-    pub async fn write_chunk(&mut self, buf: Bytes) -> Result<(), Error> {
-        self.0.write_chunk(buf).await
     }
 
     pub fn set_priority(&mut self, order: i32) {
@@ -82,18 +79,14 @@ impl SendStream {
 pub struct RecvStream(web_transport_wasm::RecvStream);
 
 impl RecvStream {
-    pub async fn read(&mut self, buf: &mut [u8]) -> Result<Option<usize>, Error> {
-        self.0.read(buf).await
+    /// Attempt to read a chunk of unbuffered data.
+    pub async fn read(&mut self, max: usize) -> Result<Option<Bytes>, Error> {
+        self.0.read(max).await
     }
 
     /// Attempt to read from the stream into the given buffer.
     pub async fn read_buf<B: BufMut>(&mut self, buf: &mut B) -> Result<Option<usize>, Error> {
         self.0.read_buf(buf).await
-    }
-
-    /// Attempt to read a chunk of unbuffered data.
-    pub async fn read_chunk(&mut self, max: usize) -> Result<Option<Bytes>, Error> {
-        self.0.read_chunk(max).await
     }
 
     /// Send a `STOP_SENDING` QUIC code.

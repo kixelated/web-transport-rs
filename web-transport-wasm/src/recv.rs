@@ -24,40 +24,10 @@ impl RecvStream {
         })
     }
 
-    /// Read some data into the provided buffer.
-    ///
-    /// Returns the (non-zero) number of bytes read, or None if the stream is closed.
-    pub async fn read(&mut self, buf: &mut [u8]) -> Result<Option<usize>, Error> {
-        let chunk = match self.read_chunk(buf.len()).await? {
-            Some(chunk) => chunk,
-            None => return Ok(None),
-        };
-
-        let size = chunk.len();
-        buf[..size].copy_from_slice(&chunk);
-        Ok(Some(size))
-    }
-
-    /// Read some data into the provided buffer.
-    ///
-    /// Returns the (non-zero) number of bytes read, or None if the stream is closed.
-    /// Advances the buffer by the number of bytes read.
-    pub async fn read_buf<B: BufMut>(&mut self, buf: &mut B) -> Result<Option<usize>, Error> {
-        let chunk = match self.read_chunk(buf.remaining_mut()).await? {
-            Some(chunk) => chunk,
-            None => return Ok(None),
-        };
-
-        let size = chunk.len();
-        buf.put(chunk);
-
-        Ok(Some(size))
-    }
-
     /// Read the next chunk of data with the provided maximum size.
     ///
     /// This returns a chunk of data instead of copying, which may be more efficient.
-    pub async fn read_chunk(&mut self, max: usize) -> Result<Option<Bytes>, Error> {
+    pub async fn read(&mut self, max: usize) -> Result<Option<Bytes>, Error> {
         if !self.buffer.is_empty() {
             let size = cmp::min(max, self.buffer.len());
             let data = self.buffer.split_to(size).freeze();
@@ -76,6 +46,22 @@ impl RecvStream {
         }
 
         Ok(Some(data))
+    }
+
+    /// Read some data into the provided buffer.
+    ///
+    /// Returns the (non-zero) number of bytes read, or None if the stream is closed.
+    /// Advances the buffer by the number of bytes read.
+    pub async fn read_buf<B: BufMut>(&mut self, buf: &mut B) -> Result<Option<usize>, Error> {
+        let chunk = match self.read(buf.remaining_mut()).await? {
+            Some(chunk) => chunk,
+            None => return Ok(None),
+        };
+
+        let size = chunk.len();
+        buf.put(chunk);
+
+        Ok(Some(size))
     }
 
     /// Abort reading from the stream with the given reason.

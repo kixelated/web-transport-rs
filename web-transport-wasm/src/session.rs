@@ -1,3 +1,4 @@
+use bytes::Bytes;
 use js_sys::{Object, Reflect, Uint8Array};
 use url::Url;
 use wasm_bindgen_futures::JsFuture;
@@ -81,17 +82,17 @@ impl Session {
     }
 
     /// Send a datagram over the network.
-    pub async fn send_datagram(&mut self, payload: &[u8]) -> Result<(), Error> {
+    pub async fn send_datagram(&mut self, payload: Bytes) -> Result<(), Error> {
         let mut writer = Writer::new(&self.inner.datagrams().writable())?;
         writer.write(&Uint8Array::from(payload.as_ref())).await?;
         Ok(())
     }
 
     /// Receive a datagram over the network.
-    pub async fn recv_datagram(&mut self) -> Result<Vec<u8>, Error> {
+    pub async fn recv_datagram(&mut self) -> Result<Bytes, Error> {
         let mut reader = Reader::new(&self.inner.datagrams().readable())?;
         let data: Uint8Array = reader.read().await?.unwrap_or_default();
-        Ok(data.to_vec())
+        Ok(data.to_vec().into())
     }
 
     /// Close the session with the given error code and reason.

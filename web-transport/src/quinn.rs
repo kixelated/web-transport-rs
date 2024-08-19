@@ -96,23 +96,22 @@ impl SendStream {
         Self { inner }
     }
 
-    /// Write some of the buffer to the stream, potentailly blocking on flow control.
-    pub async fn write(&mut self, buf: &[u8]) -> Result<usize, Error> {
-        Ok(self.inner.write(buf).await?)
+    /// Write *all* of the buffer to the stream.
+    pub async fn write(&mut self, buf: &[u8]) -> Result<(), Error> {
+        self.inner.write_all(buf).await?;
+        Ok(())
     }
 
-    /// Write some of the given buffer to the stream, potentially blocking on flow control.
-    pub async fn write_buf<B: Buf>(&mut self, buf: &mut B) -> Result<usize, Error> {
-        let size = self.inner.write(buf.chunk()).await?;
-        buf.advance(size);
-        Ok(size)
-    }
-
-    /// Write the entire chunk of bytes to the stream.
+    /// Write the given buffer to the stream, advancing the internal position.
     ///
-    /// More efficient for some implementations, as it avoids a copy
-    pub async fn write_chunk(&mut self, buf: Bytes) -> Result<(), Error> {
-        Ok(self.inner.write_chunk(buf).await?)
+    /// This may be polled to perform partial writes.
+    pub async fn write_buf<B: Buf>(&mut self, buf: &mut B) -> Result<(), Error> {
+        while buf.has_remaining() {
+            let size = self.inner.write(buf.chunk()).await?;
+            buf.advance(size);
+        }
+
+        Ok(())
     }
 
     /// Set the stream's priority.
@@ -141,11 +140,15 @@ impl RecvStream {
         Self { inner }
     }
 
-    /// Read some data into the provided buffer.
+    /// Read the next chunk of data with the provided maximum size.
     ///
-    /// The number of bytes read is returned, or None if the stream is closed.
-    pub async fn read(&mut self, buf: &mut [u8]) -> Result<Option<usize>, Error> {
-        Ok(self.inner.read(buf).await?)
+    /// This returns a chunk of data instead of copying, which may be more efficient.
+    pub async fn read(&mut self, max: usize) -> Result<Option<Bytes>, Error> {
+        Ok(self
+            .inner
+            .read_chunk(max, true)
+            .await?
+            .map(|chunk| chunk.bytes))
     }
 
     /// Read some data into the provided buffer.
@@ -164,17 +167,6 @@ impl RecvStream {
         unsafe { buf.advance_mut(size) };
 
         Ok(Some(size))
-    }
-
-    /// Read the next chunk of data with the provided maximum size.
-    ///
-    /// This returns a chunk of data instead of copying, which may be more efficient.
-    pub async fn read_chunk(&mut self, max: usize) -> Result<Option<Bytes>, Error> {
-        Ok(self
-            .inner
-            .read_chunk(max, true)
-            .await?
-            .map(|chunk| chunk.bytes))
     }
 
     /// Send a `STOP_SENDING` QUIC code.
