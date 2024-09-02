@@ -207,7 +207,7 @@ impl Headers {
         +-------------------------------+
         */
 
-        encode_prefix(buf, 4, 0b0111, name);
+        encode_prefix(buf, 4, 0b0101, name);
         encode_prefix(buf, 7, 0b0, value.len());
 
         buf.put_slice(value.as_bytes());
@@ -227,7 +227,7 @@ impl Headers {
         +-------------------------------+
         */
 
-        encode_prefix(buf, 3, 0b00110, name.len());
+        encode_prefix(buf, 3, 0b00100, name.len());
         buf.put_slice(name.as_bytes());
 
         encode_prefix(buf, 7, 0b0, value.len());
