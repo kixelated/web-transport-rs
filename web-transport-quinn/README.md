@@ -34,28 +34,27 @@ The only requirement is that the ALPN is set to `web_transport_quinn::ALPN` (aka
 Afterwards, you use [web_transport_quinn::accept](https://docs.rs/web-transport-quinn/latest/web_transport_quinn/fn.accept.html) (as a server) or [web_transport_quinn::connect](https://docs.rs/web-transport-quinn/latest/web_transport_quinn/fn.connect.html) (as a client) to establish a WebTransport session.
 This will take over the QUIC connection and perform the boring HTTP/3 handshake for you.
 
-You'll then have a [web_transport_quinn::Session](https://docs.rs/web-transport-quinn/latest/web_transport_quinn/struct.Session.html) which you can use to create/receive streams and datagrams.
-The API is almost identical to the Quinn API, except `Connection` is now called `Session`, so check out their [documentation too](https://docs.rs/quinn/latest/quinn/struct.Connection.html).
+See the [examples](examples) or [moq-native](https://github.com/kixelated/moq-rs/blob/main/moq-native/src/quic.rs) for a full setup.
 
-## Example
+```rust
+    // Create a QUIC client.
+    let mut endpoint = quinn::Endpoint::client("[::]:0".parse()?)?;
+    endpoint.set_default_client_config(/* ... */);
 
-See the example [server](examples/echo-server.rs) and [client](examples/echo-client.rs).
+    // Connect to the given URL.
+    let session = web_transport_quinn::connect(&client, &"https://localhost").await?;
 
-QUIC requires TLS, which makes the initial setup a bit more involved.
+    // Create a bidirectional stream.
+    let (mut send, mut recv) = session.open_bi().await?;
 
--   Generate a certificate: `./cert/generate`
--   Run the Rust server: `cargo run --example echo-server -- --tls-cert cert/localhost.crt --tls-key cert/localhost.key`
--   Run a Web client: `cd web; npm install; npx parcel serve client.html --open`
+    // Send a message.
+    send.write(b"hello").await?;
+```
 
-If you get a certificate error with the web client, try deleting `.parcel-cache`.
+## API
+The `web-transport-quinn` API is almost identical to the Quinn API, except that [Connection](https://docs.rs/quinn/latest/quinn/struct.Connection.html) is called [Session](https://docs.rs/web-transport-quinn/latest/web_transport_quinn/struct.Session.html).
 
-The Rust client example seems to be broken.
-It would be amazing if somebody could fix it: `cargo run --example echo-client -- --tls-cert cert/localhost.crt`
-
-## Limitations
-
-This library doesn't support pooling HTTP/3 or multiple WebTransport sessions.
-It's means to be analogous to the QUIC API.
-
--   If you want to support HTTP/3 on the same host/port, you should use another crate (ex. `h3-webtransport`).
--   If you want to support multiple WebTransport sessions over the same QUIC connection... you should just dial a new QUIC connection instead.
+When possible, `Deref` is used to expose the underlying Quinn API.
+However some of the API is wrapped or unavailable due to WebTransport limitations.
+- Stream IDs are not avaialble.
+- Error codes are not full VarInts (62-bits) and significantly smaller.
