@@ -6,25 +6,55 @@
 A wrapper around the Quinn API, abstracting away the annoying HTTP/3 internals.
 Provides a QUIC-like API but with web support!
 
-## Example
+## WebTransport
+[WebTransport](https://developer.mozilla.org/en-US/docs/Web/API/WebTransport_API) is a new web API that allows for low-level, bidirectional communication between a client and a server.
+It's [available in the browser](https://caniuse.com/webtransport) as an alternative to HTTP and WebSockets.
 
-See the example [server](examples/echo-server.rs) and [client](examples/echo-client.rs).
+WebTransport is layered on top of HTTP/3 which itself is layered on top of QUIC.
+This library hides that detail and exposes only the QUIC API, delegating as much as possible to the underlying QUIC implementation (Quinn).
 
-QUIC requires TLS, which makes the initial setup a bit more involved.
+QUIC provides two primary APIs:
 
--   Generate a certificate: `./cert/generate`
--   Run the Rust server: `cargo run --example echo-server -- --tls-cert cert/localhost.crt --tls-key cert/localhost.key`
--   Run a Web client: `cd web; npm install; npx parcel serve client.html --open`
+## Streams
 
-If you get a certificate error with the web client, try deleting `.parcel-cache`.
+QUIC streams are ordered, reliable, flow-controlled, and optionally bidirectional.
+Both endpoints can create and close streams (including an error code) with no overhead.
+You can think of them as TCP connections, but shared over a single QUIC connection.
 
-The Rust client example seems to be broken.
-It would be amazing if somebody could fix it: `cargo run --example echo-client -- --tls-cert cert/localhost.crt`
+## Datagrams
 
-## Limitations
+QUIC datagrams are unordered, unreliable, and not flow-controlled.
+Both endpoints can send datagrams below the MTU size (~1.2kb minimum) and they might arrive out of order or not at all.
+They are basically UDP packets, except they are encrypted and congestion controlled.
 
-This library doesn't support pooling HTTP/3 or multiple WebTransport sessions.
-It's means to be analogous to the QUIC API.
+# Usage
+To use web-transport-quinn, first you need to create a [quinn::Endpoint](https://docs.rs/quinn/latest/quinn/struct.Endpoint.html); see the documentation and examples for more information.
+The only requirement is that the ALPN is set to `web_transport_quinn::ALPN` (aka `h3`).
 
--   If you want to support HTTP/3 on the same host/port, you should use another crate (ex. `h3-webtransport`).
--   If you want to support multiple WebTransport sessions over the same QUIC connection... you should just dial a new QUIC connection instead.
+Afterwards, you use [web_transport_quinn::accept](https://docs.rs/web-transport-quinn/latest/web_transport_quinn/fn.accept.html) (as a server) or [web_transport_quinn::connect](https://docs.rs/web-transport-quinn/latest/web_transport_quinn/fn.connect.html) (as a client) to establish a WebTransport session.
+This will take over the QUIC connection and perform the boring HTTP/3 handshake for you.
+
+See the [examples](examples) or [moq-native](https://github.com/kixelated/moq-rs/blob/main/moq-native/src/quic.rs) for a full setup.
+
+```rust
+    // Create a QUIC client.
+    let mut endpoint = quinn::Endpoint::client("[::]:0".parse()?)?;
+    endpoint.set_default_client_config(/* ... */);
+
+    // Connect to the given URL.
+    let session = web_transport_quinn::connect(&client, &"https://localhost").await?;
+
+    // Create a bidirectional stream.
+    let (mut send, mut recv) = session.open_bi().await?;
+
+    // Send a message.
+    send.write(b"hello").await?;
+```
+
+## API
+The `web-transport-quinn` API is almost identical to the Quinn API, except that [Connection](https://docs.rs/quinn/latest/quinn/struct.Connection.html) is called [Session](https://docs.rs/web-transport-quinn/latest/web_transport_quinn/struct.Session.html).
+
+When possible, `Deref` is used to expose the underlying Quinn API.
+However some of the API is wrapped or unavailable due to WebTransport limitations.
+- Stream IDs are not avaialble.
+- Error codes are not full VarInts (62-bits) and significantly smaller.

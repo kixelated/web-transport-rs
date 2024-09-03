@@ -3,7 +3,7 @@
 [![discord](https://img.shields.io/discord/1124083992740761730)](https://discord.gg/FCYF3p99mr)
 
 # WebTransport
-WebTransport is a protocol for client-server communication over QUIC.
+[WebTransport](https://developer.mozilla.org/en-US/docs/Web/API/WebTransport_API) is a new web API that allows for low-level, bidirectional communication between a client and a server.
 It's [available in the browser](https://caniuse.com/webtransport) as an alternative to HTTP and WebSockets.
 
 WebTransport is layered on top of HTTP/3 which is then layered on top of QUIC.
