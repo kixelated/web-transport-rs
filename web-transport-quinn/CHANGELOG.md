@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.4](https://github.com/kixelated/web-transport-rs/compare/web-transport-quinn-v0.3.3...web-transport-quinn-v0.3.4) - 2024-10-26
+
+### Other
+
+- Derive PartialEq for Session. ([#45](https://github.com/kixelated/web-transport-rs/pull/45))
+
 ## [0.3.3](https://github.com/kixelated/web-transport-rs/compare/web-transport-quinn-v0.3.2...web-transport-quinn-v0.3.3) - 2024-09-03
 
 ### Other
