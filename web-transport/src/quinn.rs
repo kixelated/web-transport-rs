@@ -7,7 +7,7 @@ pub use web_transport_quinn as quinn;
 ///
 /// The session can be cloned to create multiple handles.
 /// The session will be closed with on drop.
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct Session {
     inner: web_transport_quinn::Session,
 }

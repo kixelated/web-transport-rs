@@ -238,6 +238,14 @@ impl fmt::Debug for Session {
     }
 }
 
+impl PartialEq for Session {
+    fn eq(&self, other: &Self) -> bool {
+        self.conn.stable_id() == other.conn.stable_id()
+    }
+}
+
+impl Eq for Session {}
+
 impl From<quinn::Connection> for Session {
     /// Create a QuicTransport session without a Session ID or HTTP/3 nonsense.
     /// This is a bit of a hack for MoQ, so it can support both WebTransport and raw QUIC.

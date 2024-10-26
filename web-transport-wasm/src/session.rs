@@ -124,6 +124,14 @@ impl Session {
     }
 }
 
+impl PartialEq for Session {
+    fn eq(&self, other: &Self) -> bool {
+        self.inner == other.inner
+    }
+}
+
+impl Eq for Session {}
+
 /// Build a session with the given URL and options.
 pub struct SessionBuilder {
     url: Url,
