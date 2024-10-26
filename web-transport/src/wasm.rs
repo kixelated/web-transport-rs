@@ -3,7 +3,7 @@ use bytes::{Buf, BufMut, Bytes};
 // Export the Wasm implementation to simplify Cargo.toml
 pub use web_transport_wasm as wasm;
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct Session(web_transport_wasm::Session);
 
 impl Session {
