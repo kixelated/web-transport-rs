@@ -15,10 +15,10 @@ categories = ["network-programming", "web-programming"]
 
 [dependencies]
 bytes = "1"
+thiserror = "1"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-web-transport-wasm = { version = "0.4", path = "../web-transport-wasm" }
+web-transport-wasm = { version = "0.4.1", path = "../web-transport-wasm" }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-web-transport-quinn = { version = "0.3", path = "../web-transport-quinn" }
-thiserror = "1"
+web-transport-quinn = { version = "0.3.4", path = "../web-transport-quinn" }
