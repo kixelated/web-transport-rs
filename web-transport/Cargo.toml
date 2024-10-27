@@ -1,6 +1,6 @@
 [package]
 name = "web-transport"
-description = "Generic WebTransport client and server"
+description = "Generic WebTransport API with native (web-transport-quinn) and WASM (web-transport-wasm) support."
 authors = ["Luke Curley"]
 repository = "https://github.com/kixelated/web-transport-rs"
 license = "MIT OR Apache-2.0"
