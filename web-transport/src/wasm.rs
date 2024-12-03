@@ -3,6 +3,34 @@ use bytes::{Buf, BufMut, Bytes};
 // Export the Wasm implementation to simplify Cargo.toml
 pub use web_transport_wasm as wasm;
 
+pub struct Client {
+    inner: web_transport_wasm::Client,
+}
+
+impl Client {
+    pub fn new() -> Self {
+        Self {
+            inner: web_transport_wasm::Client::new(),
+        }
+    }
+
+    pub fn low_latency(self) -> Self {
+        Self {
+            inner: self.inner.low_latency(),
+        }
+    }
+
+    pub fn server_certificate_hashes(self, hashes: Vec<Vec<u8>>) -> Self {
+        Self {
+            inner: self.inner.server_certificate_hashes(hashes),
+        }
+    }
+
+    pub async fn connect(&self, url: &Url) -> Result<Session, Error> {
+        Ok(self.inner.connect(url).await?.into())
+    }
+}
+
 #[derive(Clone, PartialEq, Eq)]
 pub struct Session(web_transport_wasm::Session);
 

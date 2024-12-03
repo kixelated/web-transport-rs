@@ -1,7 +1,40 @@
 use bytes::{Buf, BufMut, Bytes};
+use url::Url;
 
 // Export the Quinn implementation to simplify Cargo.toml
 pub use web_transport_quinn as quinn;
+
+/// A client that can be used to configure and connect to a server.
+pub struct Client {
+    inner: quinn::Client,
+}
+
+impl Client {
+    pub fn new() -> Self {
+        Self {
+            inner: quinn::Client::new(),
+        }
+    }
+
+    /// Enable a lower latency congestion controller.
+    pub fn low_latency(self) -> Self {
+        Self {
+            inner: self.inner.low_latency(),
+        }
+    }
+
+    /// Accept the server's certificate hashes (sha256) instead of using a root CA.
+    pub fn server_certificate_hashes(self, hashes: Vec<Vec<u8>>) -> Self {
+        Self {
+            inner: self.inner.server_certificate_hashes(hashes),
+        }
+    }
+
+    /// Connect to the server.
+    pub async fn connect(&self, url: &Url) -> Result<Session, Error> {
+        Ok(self.inner.connect(url).await?.into())
+    }
+}
 
 /// A WebTransport Session, able to accept/create streams and send/recv datagrams.
 ///
@@ -9,7 +42,7 @@ pub use web_transport_quinn as quinn;
 /// The session will be closed with on drop.
 #[derive(Clone, PartialEq, Eq)]
 pub struct Session {
-    inner: web_transport_quinn::Session,
+    inner: quinn::Session,
 }
 
 impl Session {
@@ -77,8 +110,8 @@ impl Session {
 }
 
 /// Convert a `web_transport_quinn::Session` into a `web_transport::Session`.
-impl From<web_transport_quinn::Session> for Session {
-    fn from(session: web_transport_quinn::Session) -> Self {
+impl From<quinn::Session> for Session {
+    fn from(session: quinn::Session) -> Self {
         Session { inner: session }
     }
 }
@@ -88,11 +121,11 @@ impl From<web_transport_quinn::Session> for Session {
 /// QUIC streams have flow control, which means the send rate is limited by the peer's receive window.
 /// The stream will be closed with a graceful FIN when dropped.
 pub struct SendStream {
-    inner: web_transport_quinn::SendStream,
+    inner: quinn::SendStream,
 }
 
 impl SendStream {
-    fn new(inner: web_transport_quinn::SendStream) -> Self {
+    fn new(inner: quinn::SendStream) -> Self {
         Self { inner }
     }
 
@@ -132,11 +165,11 @@ impl SendStream {
 /// All bytes are flushed in order and the stream is flow controlled.
 /// The stream will be closed with STOP_SENDING code=0 when dropped.
 pub struct RecvStream {
-    inner: web_transport_quinn::RecvStream,
+    inner: quinn::RecvStream,
 }
 
 impl RecvStream {
-    fn new(inner: web_transport_quinn::RecvStream) -> Self {
+    fn new(inner: quinn::RecvStream) -> Self {
         Self { inner }
     }
 
@@ -182,27 +215,30 @@ impl RecvStream {
 #[derive(Debug, thiserror::Error, Clone)]
 pub enum Error {
     #[error("session error: {0}")]
-    Session(#[from] web_transport_quinn::SessionError),
+    Session(#[from] quinn::SessionError),
+
+    #[error("client error: {0}")]
+    Client(#[from] quinn::ClientError),
 
     #[error("write error: {0}")]
-    Write(web_transport_quinn::WriteError),
+    Write(quinn::WriteError),
 
     #[error("read error: {0}")]
-    Read(web_transport_quinn::ReadError),
+    Read(quinn::ReadError),
 }
 
-impl From<web_transport_quinn::WriteError> for Error {
-    fn from(e: web_transport_quinn::WriteError) -> Self {
+impl From<quinn::WriteError> for Error {
+    fn from(e: quinn::WriteError) -> Self {
         match e {
-            web_transport_quinn::WriteError::SessionError(e) => Error::Session(e),
+            quinn::WriteError::SessionError(e) => Error::Session(e),
             e => Error::Write(e),
         }
     }
 }
-impl From<web_transport_quinn::ReadError> for Error {
-    fn from(e: web_transport_quinn::ReadError) -> Self {
+impl From<quinn::ReadError> for Error {
+    fn from(e: quinn::ReadError) -> Self {
         match e {
-            web_transport_quinn::ReadError::SessionError(e) => Error::Session(e),
+            quinn::ReadError::SessionError(e) => Error::Session(e),
             e => Error::Read(e),
         }
     }

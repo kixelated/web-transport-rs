@@ -10,8 +10,11 @@ use std::{
 
 use bytes::{Bytes, BytesMut};
 use futures::stream::{FuturesUnordered, Stream, StreamExt};
+use url::Url;
 
-use crate::{Connect, RecvStream, SendStream, SessionError, Settings, WebTransportError};
+use crate::{
+    ClientError, Connect, RecvStream, SendStream, SessionError, Settings, WebTransportError,
+};
 
 use web_transport_proto::{Frame, StreamUni, VarInt};
 
@@ -76,6 +79,22 @@ impl Session {
             settings: Some(Arc::new(settings)),
             connect: Some(Arc::new(connect)),
         }
+    }
+
+    /// Connect using an established QUIC connection if you want to create the connection yourself.
+    /// This will only work with a brand new QUIC connection using the HTTP/3 ALPN.
+    pub async fn connect(conn: quinn::Connection, url: &Url) -> Result<Session, ClientError> {
+        // Perform the H3 handshake by sending/reciving SETTINGS frames.
+        let settings = Settings::connect(&conn).await?;
+
+        // Send the HTTP/3 CONNECT request.
+        let connect = Connect::open(&conn, url).await?;
+
+        // Return the resulting session with a reference to the control/connect streams.
+        // If either stream is closed, then the session will be closed, so we need to keep them around.
+        let session = Session::new(conn, settings, connect);
+
+        Ok(session)
     }
 
     /// Accept a new unidirectional stream. See [`quinn::Connection::accept_uni`].

@@ -47,3 +47,6 @@ use settings::*;
 
 /// The HTTP/3 ALPN is required when negotiating a QUIC connection.
 pub const ALPN: &[u8] = b"h3";
+
+/// Re-export the underlying QUIC implementation.
+pub use quinn;

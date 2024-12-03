@@ -30,6 +30,7 @@ jobs:
 
       # Same but for WASM
       - run: cargo check -p web-transport -p web-transport-wasm --verbose --target wasm32-unknown-unknown
+      - run: cargo clippy -p web-transport -p web-transport-wasm --no-deps --target wasm32-unknown-unknown
 
       # Check for unused dependencies
       - uses: bnjbvr/cargo-machete@main
