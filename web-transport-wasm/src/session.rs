@@ -1,10 +1,8 @@
 use bytes::Bytes;
-use js_sys::{Object, Reflect, Uint8Array};
-use url::Url;
+use js_sys::Uint8Array;
 use wasm_bindgen_futures::JsFuture;
 use web_sys::{
-    WebTransport, WebTransportBidirectionalStream, WebTransportCloseInfo,
-    WebTransportCongestionControl, WebTransportOptions, WebTransportSendStream,
+    WebTransport, WebTransportBidirectionalStream, WebTransportCloseInfo, WebTransportSendStream,
 };
 
 use crate::{Error, Reader, RecvStream, SendStream, Writer};
@@ -22,16 +20,6 @@ pub struct Session {
 }
 
 impl Session {
-    /// Create a new session builder with the given URL.
-    pub fn build(url: Url) -> SessionBuilder {
-        SessionBuilder::new(url)
-    }
-
-    /// Connect to the given URL with the default options.
-    pub async fn connect(url: Url) -> Result<Session, Error> {
-        Self::build(url).connect().await
-    }
-
     /// Accept a new unidirectional stream from the peer.
     pub async fn accept_uni(&mut self) -> Result<RecvStream, Error> {
         let mut reader = Reader::new(&self.inner.incoming_unidirectional_streams())?;
@@ -132,67 +120,8 @@ impl PartialEq for Session {
 
 impl Eq for Session {}
 
-/// Build a session with the given URL and options.
-pub struct SessionBuilder {
-    url: Url,
-    options: WebTransportOptions,
-}
-
-// Check https://rustwasm.github.io/wasm-bindgen/api/web_sys/struct.WebTransportOptions.html
-impl SessionBuilder {
-    /// Create a new builder with the given URL.
-    pub fn new(url: Url) -> Self {
-        Self {
-            url,
-            options: WebTransportOptions::new(),
-        }
-    }
-
-    /// Determine if the client/server is allowed to pool connections.
-    /// (Hint) Don't set it to true.
-    pub fn allow_pooling(self, val: bool) -> Self {
-        self.options.set_allow_pooling(val);
-        self
-    }
-
-    /// Determine if HTTP/2 is a valid fallback.
-    pub fn require_unreliable(self, val: bool) -> Self {
-        self.options.set_require_unreliable(val);
-        self
-    }
-
-    /// Hint at the required congestion control algorithm
-    pub fn congestion_control(self, control: CongestionControl) -> Self {
-        self.options.set_congestion_control(control);
-        self
-    }
-
-    /// Supply sha256 hashes for accepted certificates, instead of using a root CA
-    pub fn server_certificate_hashes(self, hashes: Vec<Vec<u8>>) -> Self {
-        // expected: [ { algorithm: "sha-256", value: hashValue }, ... ]
-        let hashes = hashes
-            .into_iter()
-            .map(|hash| {
-                let hash = Uint8Array::from(&hash[..]);
-                let obj = Object::new();
-                Reflect::set(&obj, &"algorithm".into(), &"sha-256".into()).unwrap();
-                Reflect::set(&obj, &"value".into(), &hash.into()).unwrap();
-                obj
-            })
-            .collect::<js_sys::Array>();
-
-        self.options.set_server_certificate_hashes(&hashes);
-        self
-    }
-
-    /// Connect once the builder is configured.
-    pub async fn connect(self) -> Result<Session, Error> {
-        let inner = WebTransport::new_with_options(self.url.as_ref(), &self.options)?;
-        JsFuture::from(inner.ready()).await?;
-
-        Ok(Session { inner })
+impl From<WebTransport> for Session {
+    fn from(inner: WebTransport) -> Self {
+        Session { inner }
     }
 }
-
-/// A type of congestion control algorithm.
-pub type CongestionControl = WebTransportCongestionControl;

@@ -1,5 +1,39 @@
 use thiserror::Error;
 
+use crate::{ConnectError, SettingsError};
+use quinn::rustls;
+
+/// An error returned when connecting to a WebTransport endpoint.
+#[derive(Error, Debug, Clone)]
+pub enum ClientError {
+    #[error("unexpected end of stream")]
+    UnexpectedEnd,
+
+    #[error("connection error: {0}")]
+    Connection(#[from] quinn::ConnectionError),
+
+    #[error("failed to write: {0}")]
+    WriteError(#[from] quinn::WriteError),
+
+    #[error("failed to read: {0}")]
+    ReadError(#[from] quinn::ReadError),
+
+    #[error("failed to exchange h3 settings: {0}")]
+    SettingsError(#[from] SettingsError),
+
+    #[error("failed to exchange h3 connect: {0}")]
+    HttpError(#[from] ConnectError),
+
+    #[error("quic error: {0}")]
+    QuinnError(#[from] quinn::ConnectError),
+
+    #[error("invalid DNS name: {0}")]
+    InvalidDnsName(String),
+
+    #[error("rustls error: {0}")]
+    Rustls(#[from] rustls::Error),
+}
+
 /// An errors returned by [`crate::Session`], split based on if they are underlying QUIC errors or WebTransport errors.
 #[derive(Clone, Error, Debug)]
 pub enum SessionError {

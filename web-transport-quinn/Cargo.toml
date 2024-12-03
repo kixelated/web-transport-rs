@@ -26,6 +26,9 @@ futures = "0.3"
 url = "2"
 log = "0.4"
 
+rustls-platform-verifier = "0.4"
+sha2 = "0.10"
+
 # This is just for AsyncRead/AsyncWrite and does NOT pull in anything else
 tokio = { version = "1", default-features = false }
 

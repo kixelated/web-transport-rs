@@ -56,7 +56,8 @@ async fn main() -> anyhow::Result<()> {
     log::info!("connecting to {}", args.url);
 
     // Connect to the given URL.
-    let session = web_transport_quinn::connect(&client, &args.url).await?;
+    let client = web_transport_quinn::Client::new();
+    let session = client.connect(&args.url).await?;
 
     log::info!("connected");
 
