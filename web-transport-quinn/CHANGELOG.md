@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0](https://github.com/kixelated/web-transport-rs/compare/web-transport-quinn-v0.3.4...web-transport-quinn-v0.4.0) - 2024-12-03
+
+### Other
+
+- Make a `Client` class to make configuration easier. ([#50](https://github.com/kixelated/web-transport-rs/pull/50))
+
 ## [0.3.4](https://github.com/kixelated/web-transport-rs/compare/web-transport-quinn-v0.3.3...web-transport-quinn-v0.3.4) - 2024-10-26
 
 ### Other

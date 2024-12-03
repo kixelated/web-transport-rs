@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.2](https://github.com/kixelated/web-transport-rs/compare/web-transport-wasm-v0.4.1...web-transport-wasm-v0.4.2) - 2024-12-03
+
+### Other
+
+- Make a `Client` class to make configuration easier. ([#50](https://github.com/kixelated/web-transport-rs/pull/50))
+
 ## [0.4.1](https://github.com/kixelated/web-transport-rs/compare/web-transport-wasm-v0.4.0...web-transport-wasm-v0.4.1) - 2024-10-26
 
 ### Other
