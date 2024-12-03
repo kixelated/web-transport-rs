@@ -1,10 +1,11 @@
 use js_sys::{Object, Reflect, Uint8Array};
 use url::Url;
 use wasm_bindgen_futures::JsFuture;
-pub use web_sys::WebTransportCongestionControl as CongestionControl;
 use web_sys::{WebTransport, WebTransportOptions};
 
 use crate::{Error, Session};
+
+pub use web_sys::WebTransportCongestionControl as CongestionControl;
 
 /// Build a session with the given URL and options.
 pub struct Client {

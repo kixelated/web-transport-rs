@@ -1,4 +1,7 @@
 use bytes::{Buf, BufMut, Bytes};
+use url::Url;
+
+pub use web_transport_wasm::CongestionControl;
 
 // Export the Wasm implementation to simplify Cargo.toml
 pub use web_transport_wasm as wasm;
@@ -14,9 +17,9 @@ impl Client {
         }
     }
 
-    pub fn low_latency(self) -> Self {
+    pub fn congestion_control(self, cc: CongestionControl) -> Self {
         Self {
-            inner: self.inner.low_latency(),
+            inner: self.inner.congestion_control(cc),
         }
     }
 

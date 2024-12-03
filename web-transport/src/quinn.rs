@@ -4,6 +4,8 @@ use url::Url;
 // Export the Quinn implementation to simplify Cargo.toml
 pub use web_transport_quinn as quinn;
 
+pub use web_transport_quinn::CongestionControl;
+
 /// A client that can be used to configure and connect to a server.
 pub struct Client {
     inner: quinn::Client,
@@ -16,10 +18,10 @@ impl Client {
         }
     }
 
-    /// Enable a lower latency congestion controller.
-    pub fn low_latency(self) -> Self {
+    /// Allow a lower latency congestion controller.
+    pub fn congestion_control(self, cc: CongestionControl) -> Self {
         Self {
-            inner: self.inner.low_latency(),
+            inner: self.inner.congestion_control(cc),
         }
     }
 

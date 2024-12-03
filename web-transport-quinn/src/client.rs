@@ -14,6 +14,14 @@ use rustls_platform_verifier::ConfigVerifierExt;
 
 use crate::{ClientError, Session, ALPN};
 
+// Copies the Web options, hiding the actual implementation.
+/// Allows specifying a class of congestion control algorithm.
+pub enum CongestionControl {
+    Default,
+    Throughput,
+    LowLatency,
+}
+
 pub struct Client {
     congestion_controller:
         Option<Arc<dyn quinn::congestion::ControllerFactory + Send + Sync + 'static>>,
@@ -29,14 +37,30 @@ impl Client {
         }
     }
 
-    /// Enable a lower latency congestion controller.
-    pub fn low_latency(mut self) -> Self {
-        self.congestion_controller = Some(Arc::new(quinn::congestion::BbrConfig::default()));
+    /// Enable the specified congestion controller.
+    pub fn congestion_control(mut self, algorithm: CongestionControl) -> Self {
+        self.congestion_controller = match algorithm {
+            CongestionControl::LowLatency => {
+                Some(Arc::new(quinn::congestion::BbrConfig::default()))
+            }
+            // TODO BBR is also higher throughput in theory.
+            CongestionControl::Throughput => {
+                Some(Arc::new(quinn::congestion::CubicConfig::default()))
+            }
+            CongestionControl::Default => None,
+        };
+
         self
     }
 
-    /// Supply sha256 hashes for accepted certificates, instead of using a root CA
+    /// Supply sha256 hashes for accepted certificates.
+    /// If empty, this feature is disabled and root CAs are used.
     pub fn server_certificate_hashes(mut self, hashes: Vec<Vec<u8>>) -> Self {
+        if hashes.is_empty() {
+            self.fingerprints = None;
+            return self;
+        }
+
         // We need to make a dummy cert verifier to use the custom fingerprints.
         let roots = Arc::new(rustls::RootCertStore::empty());
         let parent = WebPkiServerVerifier::builder(roots).build().unwrap();
