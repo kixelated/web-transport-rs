@@ -4,13 +4,14 @@ use bytes::{BufMut, Bytes, BytesMut};
 use js_sys::Uint8Array;
 use web_sys::WebTransportReceiveStream;
 
-use crate::{Error, Reader};
+use crate::Error;
+use web_streams::Reader;
 
 /// A stream of bytes received from the remote peer.
 ///
 /// This can be closed by either side with an error code, or closed by the remote with a FIN.
 pub struct RecvStream {
-    reader: Reader,
+    reader: Reader<Uint8Array>,
     buffer: BytesMut,
 }
 
@@ -34,7 +35,7 @@ impl RecvStream {
             return Ok(Some(data));
         }
 
-        let mut data: Bytes = match self.reader.read::<Uint8Array>().await? {
+        let mut data: Bytes = match self.reader.read().await? {
             // TODO can we avoid making a copy here?
             Some(data) => data.to_vec().into(),
             None => return Ok(None),

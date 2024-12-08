@@ -2,7 +2,8 @@ use bytes::Buf;
 use js_sys::{Reflect, Uint8Array};
 use web_sys::WebTransportSendStream;
 
-use crate::{Error, Writer};
+use crate::Error;
+use web_streams::Writer;
 
 /// A stream of bytes sent to the remote peer.
 pub struct SendStream {

@@ -5,7 +5,8 @@ use web_sys::{
     WebTransport, WebTransportBidirectionalStream, WebTransportCloseInfo, WebTransportSendStream,
 };
 
-use crate::{Error, Reader, RecvStream, SendStream, Writer};
+use crate::{Error, RecvStream, SendStream};
+use web_streams::{Reader, Writer};
 
 /// A session represents a connection between a client and a server.
 ///

@@ -18,6 +18,7 @@ js-sys = "0.3.70"
 bytes = "1"
 thiserror = "1"
 url = "2"
+web-streams = "0.1"
 
 [dependencies.web-sys]
 version = "0.3.70"
