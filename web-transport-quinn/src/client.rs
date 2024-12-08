@@ -22,6 +22,7 @@ pub enum CongestionControl {
     LowLatency,
 }
 
+#[derive(Default)]
 pub struct Client {
     congestion_controller:
         Option<Arc<dyn quinn::congestion::ControllerFactory + Send + Sync + 'static>>,
@@ -31,10 +32,7 @@ pub struct Client {
 impl Client {
     /// Create a [SessionClient] which can be used to build a session.
     pub fn new() -> Self {
-        Self {
-            congestion_controller: None,
-            fingerprints: None,
-        }
+        Self::default()
     }
 
     /// Enable the specified congestion controller.
@@ -126,7 +124,7 @@ impl Client {
         let conn = conn.await?;
 
         // Connect with the connection we established.
-        Session::connect(conn, &url).await
+        Session::connect(conn, url).await
     }
 }
 
@@ -145,7 +143,7 @@ impl ServerCertVerifier for ServerFingerprints {
         _ocsp_response: &[u8],
         _now: rustls::pki_types::UnixTime,
     ) -> Result<rustls::client::danger::ServerCertVerified, rustls::Error> {
-        let cert_hash = Sha256::digest(&end_entity);
+        let cert_hash = Sha256::digest(end_entity);
 
         if self
             .fingerprints
