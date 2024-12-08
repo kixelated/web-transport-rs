@@ -16,5 +16,5 @@ categories = ["network-programming", "web-programming"]
 [dependencies]
 http = "1"
 bytes = "1"
-thiserror = "1"
+thiserror = "2"
 url = "2"
