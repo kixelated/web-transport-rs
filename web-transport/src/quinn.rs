@@ -7,15 +7,14 @@ pub use web_transport_quinn as quinn;
 pub use web_transport_quinn::CongestionControl;
 
 /// A client that can be used to configure and connect to a server.
+#[derive(Default)]
 pub struct Client {
     inner: quinn::Client,
 }
 
 impl Client {
     pub fn new() -> Self {
-        Self {
-            inner: quinn::Client::new(),
-        }
+        Self::default()
     }
 
     /// Allow a lower latency congestion controller.

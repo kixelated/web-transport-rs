@@ -8,16 +8,16 @@ use crate::{Error, Session};
 pub use web_sys::WebTransportCongestionControl as CongestionControl;
 
 /// Build a session with the given URL and options.
+#[derive(Default, Debug)]
 pub struct Client {
+    // Check https://rustwasm.github.io/wasm-bindgen/api/web_sys/struct.WebTransportOptions.html
     options: WebTransportOptions,
 }
 
 // Check https://rustwasm.github.io/wasm-bindgen/api/web_sys/struct.WebTransportOptions.html
 impl Client {
     pub fn new() -> Self {
-        Self {
-            options: WebTransportOptions::new(),
-        }
+        Self::default()
     }
 
     /// Determine if the client/server is allowed to pool connections.
