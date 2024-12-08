@@ -14,14 +14,14 @@ categories = ["network-programming", "web-programming"]
 [dependencies]
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"
-js-sys = "0.3.70"
+js-sys = "0.3.76"
 bytes = "1"
-thiserror = "1"
+thiserror = "2"
 url = "2"
 web-streams = "0.1"
 
 [dependencies.web-sys]
-version = "0.3.70"
+version = "0.3.76"
 features = [
     "ReadableStream",
     "ReadableStreamDefaultReader",
