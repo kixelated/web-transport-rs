@@ -9,6 +9,9 @@ pub enum Error {
     #[error("webtransport stream error: {0:?}")]
     Stream(web_sys::WebTransportError),
 
+    #[error("web streams error: {0:?}")]
+    Streams(#[from] web_streams::Error),
+
     #[error("unknown error: {0:?}")]
     Unknown(JsValue),
 }
@@ -18,7 +21,7 @@ impl Error {
     pub fn code(&self) -> Option<u8> {
         match self {
             Error::Session(e) | Error::Stream(e) => e.stream_error_code(),
-            Error::Unknown(_) => None,
+            _ => None,
         }
     }
 }
@@ -35,19 +38,5 @@ impl From<JsValue> for Error {
         } else {
             Error::Unknown(v)
         }
-    }
-}
-
-/// A helper to ignore the result of a promise.
-pub(crate) trait PromiseExt {
-    fn ignore(self);
-}
-
-impl PromiseExt for js_sys::Promise {
-    // Ignore the result of the promise by using an empty catch.
-    fn ignore(self) {
-        let closure = Closure::wrap(Box::new(|_: JsValue| {}) as Box<dyn FnMut(JsValue)>);
-        let _ = self.catch(&closure);
-        closure.forget();
     }
 }
