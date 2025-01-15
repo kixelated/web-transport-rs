@@ -1,14 +1,10 @@
 use std::sync::Arc;
 
-use sha2::{Digest, Sha256};
 use tokio::net::lookup_host;
 use url::Url;
 
 use quinn::{crypto::rustls::QuicClientConfig, rustls};
-use rustls::{
-    client::{danger::ServerCertVerifier, WebPkiServerVerifier},
-    ClientConfig,
-};
+use rustls::{client::danger::ServerCertVerifier, ClientConfig};
 
 use rustls_platform_verifier::ConfigVerifierExt;
 
@@ -59,12 +55,10 @@ impl Client {
             return self;
         }
 
-        // We need to make a dummy cert verifier to use the custom fingerprints.
-        let roots = Arc::new(rustls::RootCertStore::empty());
-        let parent = WebPkiServerVerifier::builder(roots).build().unwrap();
-
+        // Use a custom fingerprint verifier.
+        let provider = Arc::new(rustls::crypto::aws_lc_rs::default_provider());
         self.fingerprints = Some(Arc::new(ServerFingerprints {
-            parent,
+            provider,
             fingerprints: hashes,
         }));
 
@@ -130,7 +124,7 @@ impl Client {
 
 #[derive(Debug)]
 struct ServerFingerprints {
-    parent: Arc<dyn ServerCertVerifier>,
+    provider: Arc<rustls::crypto::CryptoProvider>,
     fingerprints: Vec<Vec<u8>>,
 }
 
@@ -143,12 +137,12 @@ impl ServerCertVerifier for ServerFingerprints {
         _ocsp_response: &[u8],
         _now: rustls::pki_types::UnixTime,
     ) -> Result<rustls::client::danger::ServerCertVerified, rustls::Error> {
-        let cert_hash = Sha256::digest(end_entity);
+        let cert_hash = aws_lc_rs::digest::digest(&aws_lc_rs::digest::SHA256, end_entity);
 
         if self
             .fingerprints
             .iter()
-            .any(|fingerprint| fingerprint == cert_hash.as_slice())
+            .any(|fingerprint| fingerprint == cert_hash.as_ref())
         {
             return Ok(rustls::client::danger::ServerCertVerified::assertion());
         }
@@ -164,7 +158,12 @@ impl ServerCertVerifier for ServerFingerprints {
         cert: &rustls::pki_types::CertificateDer<'_>,
         dss: &rustls::DigitallySignedStruct,
     ) -> Result<rustls::client::danger::HandshakeSignatureValid, rustls::Error> {
-        self.parent.verify_tls12_signature(message, cert, dss)
+        rustls::crypto::verify_tls12_signature(
+            message,
+            cert,
+            dss,
+            &self.provider.signature_verification_algorithms,
+        )
     }
 
     fn verify_tls13_signature(
@@ -173,10 +172,17 @@ impl ServerCertVerifier for ServerFingerprints {
         cert: &rustls::pki_types::CertificateDer<'_>,
         dss: &rustls::DigitallySignedStruct,
     ) -> Result<rustls::client::danger::HandshakeSignatureValid, rustls::Error> {
-        self.parent.verify_tls13_signature(message, cert, dss)
+        rustls::crypto::verify_tls13_signature(
+            message,
+            cert,
+            dss,
+            &self.provider.signature_verification_algorithms,
+        )
     }
 
     fn supported_verify_schemes(&self) -> Vec<rustls::SignatureScheme> {
-        self.parent.supported_verify_schemes()
+        self.provider
+            .signature_verification_algorithms
+            .supported_schemes()
     }
 }

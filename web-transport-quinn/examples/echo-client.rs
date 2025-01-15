@@ -40,7 +40,7 @@ async fn main() -> anyhow::Result<()> {
     // Standard quinn setup, accepting only the given certificate.
     // You should use system roots in production.
     let mut config = rustls::ClientConfig::builder_with_provider(Arc::new(
-        rustls::crypto::ring::default_provider(),
+        rustls::crypto::aws_lc_rs::default_provider(),
     ))
     .with_protocol_versions(&[&rustls::version::TLS13])?
     .with_root_certificates(roots)
