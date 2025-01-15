@@ -6,6 +6,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.3](https://github.com/kixelated/web-transport-rs/compare/web-transport-wasm-v0.4.2...web-transport-wasm-v0.4.3) - 2025-01-15
+
+### Other
+
+- Bump some deps. ([#55](https://github.com/kixelated/web-transport-rs/pull/55))
+- Clippy fixes. ([#53](https://github.com/kixelated/web-transport-rs/pull/53))
+- Move the ReadableStreams stuff to a new crate. ([#52](https://github.com/kixelated/web-transport-rs/pull/52))
+
 ## [0.4.2](https://github.com/kixelated/web-transport-rs/compare/web-transport-wasm-v0.4.1...web-transport-wasm-v0.4.2) - 2024-12-03
 
 ### Other
