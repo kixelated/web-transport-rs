@@ -6,6 +6,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1](https://github.com/kixelated/web-transport-rs/compare/web-transport-quinn-v0.4.0...web-transport-quinn-v0.4.1) - 2025-01-15
+
+### Other
+
+- Switch to aws_lc_rs ([#58](https://github.com/kixelated/web-transport-rs/pull/58))
+- Bump some deps. ([#55](https://github.com/kixelated/web-transport-rs/pull/55))
+- Clippy fixes. ([#53](https://github.com/kixelated/web-transport-rs/pull/53))
+
 ## [0.4.0](https://github.com/kixelated/web-transport-rs/compare/web-transport-quinn-v0.3.4...web-transport-quinn-v0.4.0) - 2024-12-03
 
 ### Other
