@@ -8,7 +8,10 @@ use rustls::{client::danger::ServerCertVerifier, ClientConfig};
 
 use rustls_platform_verifier::ConfigVerifierExt;
 
-use crate::{ClientError, Session, ALPN};
+use crate::{ClientError, Session};
+
+const DEFAULT_KEEPALIVE_INTERVAL_DUR: std::time::Duration = std::time::Duration::from_secs(4);
+const DEFAULT_MAX_IDLE_TIMEOUT_DUR: std::time::Duration = std::time::Duration::from_secs(10);
 
 // Copies the Web options, hiding the actual implementation.
 /// Allows specifying a class of congestion control algorithm.
@@ -20,6 +23,9 @@ pub enum CongestionControl {
 
 #[derive(Default)]
 pub struct Client {
+    endpoint: Option<quinn::Endpoint>,
+    config: Option<quinn::ClientConfig>,
+    transport_config: Option<quinn::TransportConfig>,
     congestion_controller:
         Option<Arc<dyn quinn::congestion::ControllerFactory + Send + Sync + 'static>>,
     fingerprints: Option<Arc<ServerFingerprints>>,
@@ -29,6 +35,24 @@ impl Client {
     /// Create a [SessionClient] which can be used to build a session.
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Attach an Endpoint to be consumed by this client upon connect()
+    pub fn with_endpoint(mut self, endpoint: quinn::Endpoint) -> Self {
+        self.endpoint = Some(endpoint);
+        self
+    }
+
+    // Attach a config to be consumed by this client upon connect()
+    pub fn with_config(mut self, cfg: quinn::ClientConfig) -> Self {
+        self.config = Some(cfg);
+        self
+    }
+
+    // Attach a transport config to be consumed by this client upon connect()
+    pub fn with_transport_config(mut self, cfg: quinn::TransportConfig) -> Self {
+        self.transport_config = Some(cfg);
+        self
     }
 
     /// Enable the specified congestion controller.
@@ -66,24 +90,34 @@ impl Client {
     }
 
     /// Connect to the server.
-    pub async fn connect(&self, url: &Url) -> Result<Session, ClientError> {
-        // Configure the crypto client.
-        let client_crypto = rustls::ClientConfig::builder();
-        let mut client_crypto = match &self.fingerprints {
-            Some(fingerprints) => client_crypto
-                .dangerous()
-                .with_custom_certificate_verifier(fingerprints.clone())
-                .with_no_client_auth(),
-            None => ClientConfig::with_platform_verifier(),
+    pub async fn connect(mut self, url: &Url) -> Result<Session, ClientError> {
+        // Retrieve config if one was passed to this client
+        let mut client_config = if let Some(cfg) = self.config.take() {
+            cfg
+        } else {
+            // Configure the crypto client.
+            let client_crypto = rustls::ClientConfig::builder();
+            let mut client_crypto = match &self.fingerprints {
+                Some(fingerprints) => client_crypto
+                    .dangerous()
+                    .with_custom_certificate_verifier(fingerprints.clone())
+                    .with_no_client_auth(),
+                None => ClientConfig::with_platform_verifier(),
+            };
+            client_crypto.alpn_protocols = vec![crate::ALPN.to_vec()];
+
+            let client_config = QuicClientConfig::try_from(client_crypto).unwrap();
+            quinn::ClientConfig::new(Arc::new(client_config))
         };
-        client_crypto.alpn_protocols = vec![ALPN.to_vec()];
 
-        let client_config = QuicClientConfig::try_from(client_crypto).unwrap();
-        let mut client_config = quinn::ClientConfig::new(Arc::new(client_config));
-
-        let mut transport = quinn::TransportConfig::default();
-        transport.max_idle_timeout(Some(std::time::Duration::from_secs(10).try_into().unwrap()));
-        transport.keep_alive_interval(Some(std::time::Duration::from_secs(4))); // TODO make this smarter
+        let mut transport = if let Some(transpt) = self.transport_config.take() {
+            transpt
+        } else {
+            let mut transport = quinn::TransportConfig::default();
+            transport.max_idle_timeout(Some(DEFAULT_MAX_IDLE_TIMEOUT_DUR.try_into().unwrap()));
+            transport.keep_alive_interval(Some(DEFAULT_KEEPALIVE_INTERVAL_DUR));
+            transport
+        };
 
         if let Some(cc) = &self.congestion_controller {
             transport.congestion_controller_factory(cc.clone());
@@ -91,7 +125,13 @@ impl Client {
 
         client_config.transport_config(transport.into());
 
-        let client = quinn::Endpoint::client("[::]:0".parse().unwrap()).unwrap();
+        // Retrieve endpoint if one was passed to this client,
+        // or use default
+        let endpoint = if let Some(endpt) = self.endpoint.clone() {
+            endpt
+        } else {
+            quinn::Endpoint::client("[::]:0".parse().unwrap()).unwrap()
+        };
 
         // TODO error on username:password in host
         let host = url
@@ -114,7 +154,7 @@ impl Client {
         };
 
         // Connect to the server using the addr we just resolved.
-        let conn = client.connect_with(client_config, remote, &host)?;
+        let conn = endpoint.connect_with(client_config, remote, &host)?;
         let conn = conn.await?;
 
         // Connect with the connection we established.
