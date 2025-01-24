@@ -25,7 +25,6 @@ pub enum CongestionControl {
 pub struct Client {
     endpoint: Option<quinn::Endpoint>,
     config: Option<quinn::ClientConfig>,
-    transport_config: Option<quinn::TransportConfig>,
     congestion_controller:
         Option<Arc<dyn quinn::congestion::ControllerFactory + Send + Sync + 'static>>,
     fingerprints: Option<Arc<ServerFingerprints>>,
@@ -46,12 +45,6 @@ impl Client {
     // Attach a config to be consumed by this client upon connect()
     pub fn with_config(mut self, cfg: quinn::ClientConfig) -> Self {
         self.config = Some(cfg);
-        self
-    }
-
-    // Attach a transport config to be consumed by this client upon connect()
-    pub fn with_transport_config(mut self, cfg: quinn::TransportConfig) -> Self {
-        self.transport_config = Some(cfg);
         self
     }
 
@@ -90,9 +83,9 @@ impl Client {
     }
 
     /// Connect to the server.
-    pub async fn connect(mut self, url: &Url) -> Result<Session, ClientError> {
+    pub async fn connect(&self, url: &Url) -> Result<Session, ClientError> {
         // Retrieve config if one was passed to this client
-        let mut client_config = if let Some(cfg) = self.config.take() {
+        let mut client_config = if let Some(cfg) = self.config.clone() {
             cfg
         } else {
             // Configure the crypto client.
@@ -110,14 +103,9 @@ impl Client {
             quinn::ClientConfig::new(Arc::new(client_config))
         };
 
-        let mut transport = if let Some(transpt) = self.transport_config.take() {
-            transpt
-        } else {
-            let mut transport = quinn::TransportConfig::default();
-            transport.max_idle_timeout(Some(DEFAULT_MAX_IDLE_TIMEOUT_DUR.try_into().unwrap()));
-            transport.keep_alive_interval(Some(DEFAULT_KEEPALIVE_INTERVAL_DUR));
-            transport
-        };
+        let mut transport = quinn::TransportConfig::default();
+        transport.max_idle_timeout(Some(DEFAULT_MAX_IDLE_TIMEOUT_DUR.try_into().unwrap()));
+        transport.keep_alive_interval(Some(DEFAULT_KEEPALIVE_INTERVAL_DUR)); // TODO make this smarter
 
         if let Some(cc) = &self.congestion_controller {
             transport.congestion_controller_factory(cc.clone());
