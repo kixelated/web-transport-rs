@@ -19,8 +19,8 @@ pub enum CongestionControl {
 /// Construct a WebTransport [Client] using sane defaults.
 ///
 /// This is optional; advanced users may use [Client::new] directly.
-#[derive(Default)]
 pub struct ClientBuilder {
+    provider: Arc<rustls::crypto::CryptoProvider>,
     congestion_controller:
         Option<Arc<dyn quinn::congestion::ControllerFactory + Send + Sync + 'static>>,
 }
@@ -28,7 +28,10 @@ pub struct ClientBuilder {
 impl ClientBuilder {
     /// Create a Client builder, which can be used to establish multiple [Session]s.
     pub fn new() -> Self {
-        Self::default()
+        Self {
+            provider: Arc::new(rustls::crypto::aws_lc_rs::default_provider()),
+            congestion_controller: None,
+        }
     }
 
     /// Enable the specified congestion controller.
@@ -65,12 +68,10 @@ impl ClientBuilder {
             }
         }
 
-        let crypto = rustls::ClientConfig::builder_with_provider(Arc::new(
-            rustls::crypto::aws_lc_rs::default_provider(),
-        ))
-        .with_protocol_versions(&[&rustls::version::TLS13])?
-        .with_root_certificates(roots)
-        .with_no_client_auth();
+        let crypto = self
+            .builder()
+            .with_root_certificates(roots)
+            .with_no_client_auth();
 
         self.build(crypto)
     }
@@ -95,20 +96,42 @@ impl ClientBuilder {
         hashes: Vec<Vec<u8>>,
     ) -> Result<Client, ClientError> {
         // Use a custom fingerprint verifier.
-        let provider = Arc::new(rustls::crypto::aws_lc_rs::default_provider());
         let fingerprints = Arc::new(ServerFingerprints {
-            provider: provider.clone(),
+            provider: self.provider.clone(),
             fingerprints: hashes,
         });
 
         // Configure the crypto client.
-        let crypto = rustls::ClientConfig::builder_with_provider(provider)
-            .with_protocol_versions(&[&rustls::version::TLS13])?
+        let crypto = self
+            .builder()
             .dangerous()
             .with_custom_certificate_verifier(fingerprints.clone())
             .with_no_client_auth();
 
         self.build(crypto)
+    }
+
+    /// Ignore the server's provided certificate, always accepting it.
+    ///
+    /// # Safety
+    /// This makes the connection vulnerable to man-in-the-middle attacks.
+    /// Only use it in secure environments, such as in local development or over a VPN connection.
+    pub unsafe fn with_no_certificate_verification(self) -> Result<Client, ClientError> {
+        let noop = NoCertificateVerification(self.provider.clone());
+
+        let crypto = self
+            .builder()
+            .dangerous()
+            .with_custom_certificate_verifier(Arc::new(noop))
+            .with_no_client_auth();
+
+        self.build(crypto)
+    }
+
+    fn builder(&self) -> rustls::ConfigBuilder<rustls::ClientConfig, rustls::WantsVerifier> {
+        rustls::ClientConfig::builder_with_provider(self.provider.clone())
+            .with_protocol_versions(&[&rustls::version::TLS13])
+            .unwrap()
     }
 
     fn build(self, mut crypto: rustls::ClientConfig) -> Result<Client, ClientError> {
@@ -129,6 +152,12 @@ impl ClientBuilder {
             endpoint: client,
             config: client_config,
         })
+    }
+}
+
+impl Default for ClientBuilder {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -247,5 +276,53 @@ impl ServerCertVerifier for ServerFingerprints {
         self.provider
             .signature_verification_algorithms
             .supported_schemes()
+    }
+}
+
+#[derive(Debug)]
+pub struct NoCertificateVerification(Arc<rustls::crypto::CryptoProvider>);
+
+impl rustls::client::danger::ServerCertVerifier for NoCertificateVerification {
+    fn verify_server_cert(
+        &self,
+        _end_entity: &CertificateDer<'_>,
+        _intermediates: &[CertificateDer<'_>],
+        _server_name: &rustls::pki_types::ServerName<'_>,
+        _ocsp: &[u8],
+        _now: rustls::pki_types::UnixTime,
+    ) -> Result<rustls::client::danger::ServerCertVerified, rustls::Error> {
+        Ok(rustls::client::danger::ServerCertVerified::assertion())
+    }
+
+    fn verify_tls12_signature(
+        &self,
+        message: &[u8],
+        cert: &CertificateDer<'_>,
+        dss: &rustls::DigitallySignedStruct,
+    ) -> Result<rustls::client::danger::HandshakeSignatureValid, rustls::Error> {
+        rustls::crypto::verify_tls12_signature(
+            message,
+            cert,
+            dss,
+            &self.0.signature_verification_algorithms,
+        )
+    }
+
+    fn verify_tls13_signature(
+        &self,
+        message: &[u8],
+        cert: &CertificateDer<'_>,
+        dss: &rustls::DigitallySignedStruct,
+    ) -> Result<rustls::client::danger::HandshakeSignatureValid, rustls::Error> {
+        rustls::crypto::verify_tls13_signature(
+            message,
+            cert,
+            dss,
+            &self.0.signature_verification_algorithms,
+        )
+    }
+
+    fn supported_verify_schemes(&self) -> Vec<rustls::SignatureScheme> {
+        self.0.signature_verification_algorithms.supported_schemes()
     }
 }
