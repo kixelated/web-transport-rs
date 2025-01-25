@@ -60,7 +60,9 @@ impl ClientBuilder {
 
         // Add the platform's native root certificates.
         for cert in native.certs {
-            roots.add(cert)?;
+            if let Err(err) = roots.add(cert) {
+                log::warn!("failed to add root cert: {:?}", err);
+            }
         }
 
         let crypto = rustls::ClientConfig::builder_with_provider(Arc::new(
@@ -174,6 +176,12 @@ impl Client {
 
         // Connect with the connection we established.
         Session::connect(conn, url).await
+    }
+}
+
+impl Default for Client {
+    fn default() -> Self {
+        ClientBuilder::new().with_system_roots().unwrap()
     }
 }
 
