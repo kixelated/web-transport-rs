@@ -15,6 +15,12 @@ pub struct ServerBuilder {
         Option<Arc<dyn quinn::congestion::ControllerFactory + Send + Sync + 'static>>,
 }
 
+impl Default for ServerBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ServerBuilder {
     /// Create a server builder with sane defaults.
     pub fn new() -> Self {

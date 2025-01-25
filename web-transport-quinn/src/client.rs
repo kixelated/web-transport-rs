@@ -26,7 +26,7 @@ pub struct ClientBuilder {
 }
 
 impl ClientBuilder {
-    /// Create a [SessionClient] which can be used to build a session.
+    /// Create a Client builder, which can be used to establish multiple [Session]s.
     pub fn new() -> Self {
         Self::default()
     }
