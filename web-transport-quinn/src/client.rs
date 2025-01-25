@@ -4,9 +4,7 @@ use tokio::net::lookup_host;
 use url::Url;
 
 use quinn::{crypto::rustls::QuicClientConfig, rustls};
-use rustls::{client::danger::ServerCertVerifier, ClientConfig};
-
-use rustls_platform_verifier::ConfigVerifierExt;
+use rustls::{client::danger::ServerCertVerifier, pki_types::CertificateDer};
 
 use crate::{ClientError, Session, ALPN};
 
@@ -18,21 +16,23 @@ pub enum CongestionControl {
     LowLatency,
 }
 
+/// Construct a WebTransport [Client] using sane defaults.
+///
+/// This is optional; advanced users may use [Client::new] directly.
 #[derive(Default)]
-pub struct Client {
+pub struct ClientBuilder {
     congestion_controller:
         Option<Arc<dyn quinn::congestion::ControllerFactory + Send + Sync + 'static>>,
-    fingerprints: Option<Arc<ServerFingerprints>>,
 }
 
-impl Client {
+impl ClientBuilder {
     /// Create a [SessionClient] which can be used to build a session.
     pub fn new() -> Self {
         Self::default()
     }
 
     /// Enable the specified congestion controller.
-    pub fn congestion_control(mut self, algorithm: CongestionControl) -> Self {
+    pub fn with_congestion_control(mut self, algorithm: CongestionControl) -> Self {
         self.congestion_controller = match algorithm {
             CongestionControl::LowLatency => {
                 Some(Arc::new(quinn::congestion::BbrConfig::default()))
@@ -47,44 +47,75 @@ impl Client {
         self
     }
 
-    /// Supply sha256 hashes for accepted certificates.
-    /// If empty, this feature is disabled and root CAs are used.
-    pub fn server_certificate_hashes(mut self, hashes: Vec<Vec<u8>>) -> Self {
-        if hashes.is_empty() {
-            self.fingerprints = None;
-            return self;
+    /// Accept any certificate from the server if it uses a known root CA.
+    pub fn with_system_roots(self) -> Result<Client, ClientError> {
+        let mut roots = rustls::RootCertStore::empty();
+
+        let native = rustls_native_certs::load_native_certs();
+
+        // Log any errors that occurred while loading the native root certificates.
+        for err in native.errors {
+            log::warn!("failed to load root cert: {:?}", err);
         }
 
-        // Use a custom fingerprint verifier.
-        let provider = Arc::new(rustls::crypto::aws_lc_rs::default_provider());
-        self.fingerprints = Some(Arc::new(ServerFingerprints {
-            provider,
-            fingerprints: hashes,
-        }));
+        // Add the platform's native root certificates.
+        for cert in native.certs {
+            roots.add(cert)?;
+        }
 
-        self
+        let crypto = rustls::ClientConfig::builder_with_provider(Arc::new(
+            rustls::crypto::aws_lc_rs::default_provider(),
+        ))
+        .with_protocol_versions(&[&rustls::version::TLS13])?
+        .with_root_certificates(roots)
+        .with_no_client_auth();
+
+        self.build(crypto)
     }
 
-    /// Connect to the server.
-    pub async fn connect(&self, url: &Url) -> Result<Session, ClientError> {
-        // Configure the crypto client.
-        let client_crypto = rustls::ClientConfig::builder();
-        let mut client_crypto = match &self.fingerprints {
-            Some(fingerprints) => client_crypto
-                .dangerous()
-                .with_custom_certificate_verifier(fingerprints.clone())
-                .with_no_client_auth(),
-            None => ClientConfig::with_platform_verifier(),
-        };
-        client_crypto.alpn_protocols = vec![ALPN.to_vec()];
+    /// Supply certificates for accepted servers instead of using root CAs.
+    pub fn with_server_certificates(
+        self,
+        certs: Vec<CertificateDer>,
+    ) -> Result<Client, ClientError> {
+        let hashes = certs.iter().map(|cert| {
+            aws_lc_rs::digest::digest(&aws_lc_rs::digest::SHA256, cert)
+                .as_ref()
+                .to_vec()
+        });
 
-        let client_config = QuicClientConfig::try_from(client_crypto).unwrap();
+        self.with_server_certificate_hashes(hashes.collect())
+    }
+
+    /// Supply sha256 hashes for accepted certificates instead of using root CAs.
+    pub fn with_server_certificate_hashes(
+        self,
+        hashes: Vec<Vec<u8>>,
+    ) -> Result<Client, ClientError> {
+        // Use a custom fingerprint verifier.
+        let provider = Arc::new(rustls::crypto::aws_lc_rs::default_provider());
+        let fingerprints = Arc::new(ServerFingerprints {
+            provider: provider.clone(),
+            fingerprints: hashes,
+        });
+
+        // Configure the crypto client.
+        let crypto = rustls::ClientConfig::builder_with_provider(provider)
+            .with_protocol_versions(&[&rustls::version::TLS13])?
+            .dangerous()
+            .with_custom_certificate_verifier(fingerprints.clone())
+            .with_no_client_auth();
+
+        self.build(crypto)
+    }
+
+    fn build(self, mut crypto: rustls::ClientConfig) -> Result<Client, ClientError> {
+        crypto.alpn_protocols = vec![ALPN.to_vec()];
+
+        let client_config = QuicClientConfig::try_from(crypto).unwrap();
         let mut client_config = quinn::ClientConfig::new(Arc::new(client_config));
 
         let mut transport = quinn::TransportConfig::default();
-        transport.max_idle_timeout(Some(std::time::Duration::from_secs(10).try_into().unwrap()));
-        transport.keep_alive_interval(Some(std::time::Duration::from_secs(4))); // TODO make this smarter
-
         if let Some(cc) = &self.congestion_controller {
             transport.congestion_controller_factory(cc.clone());
         }
@@ -92,7 +123,29 @@ impl Client {
         client_config.transport_config(transport.into());
 
         let client = quinn::Endpoint::client("[::]:0".parse().unwrap()).unwrap();
+        Ok(Client {
+            endpoint: client,
+            config: client_config,
+        })
+    }
+}
 
+/// A client for connecting to a WebTransport server.
+pub struct Client {
+    endpoint: quinn::Endpoint,
+    config: quinn::ClientConfig,
+}
+
+impl Client {
+    /// Manually create a client via a Quinn endpoint and config.
+    ///
+    /// The ALPN MUST be set to [ALPN].
+    pub fn new(endpoint: quinn::Endpoint, config: quinn::ClientConfig) -> Self {
+        Self { endpoint, config }
+    }
+
+    /// Connect to the server.
+    pub async fn connect(&self, url: &Url) -> Result<Session, ClientError> {
         // TODO error on username:password in host
         let host = url
             .host()
@@ -114,7 +167,9 @@ impl Client {
         };
 
         // Connect to the server using the addr we just resolved.
-        let conn = client.connect_with(client_config, remote, &host)?;
+        let conn = self
+            .endpoint
+            .connect_with(self.config.clone(), remote, &host)?;
         let conn = conn.await?;
 
         // Connect with the connection we established.

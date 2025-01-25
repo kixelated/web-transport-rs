@@ -1,4 +1,9 @@
-use std::{fs, io, path};
+use std::{
+    fs,
+    io::{self, Read},
+    path,
+    sync::Arc,
+};
 
 use anyhow::Context;
 
@@ -40,19 +45,35 @@ async fn main() -> anyhow::Result<()> {
     anyhow::ensure!(!chain.is_empty(), "could not find certificate");
 
     // Read the PEM private key
-    let keys = fs::File::open(args.tls_key).context("failed to open key file")?;
+    let mut keys = fs::File::open(args.tls_key).context("failed to open key file")?;
+
+    // Read the keys into a Vec so we can parse it twice.
+    let mut buf = Vec::new();
+    keys.read_to_end(&mut buf)?;
 
     // Try to parse a PKCS#8 key
     // -----BEGIN PRIVATE KEY-----
-    let key = rustls_pemfile::private_key(&mut io::BufReader::new(keys))
+    let key = rustls_pemfile::private_key(&mut io::Cursor::new(&buf))
         .context("failed to load private key")?
         .context("missing private key")?;
 
-    let mut server = web_transport_quinn::ServerBuilder::new()
-        .with_addr(args.addr)
-        .with_certificate(chain, key)?;
+    // Standard Quinn setup
+    let mut config = rustls::ServerConfig::builder_with_provider(Arc::new(
+        rustls::crypto::ring::default_provider(),
+    ))
+    .with_protocol_versions(&[&rustls::version::TLS13])?
+    .with_no_client_auth()
+    .with_single_cert(chain, key)?;
+
+    config.max_early_data_size = u32::MAX;
+    config.alpn_protocols = vec![web_transport_quinn::ALPN.to_vec()]; // this one is important
+
+    let config: quinn::crypto::rustls::QuicServerConfig = config.try_into()?;
+    let config = quinn::ServerConfig::with_crypto(Arc::new(config));
 
     log::info!("listening on {}", args.addr);
+
+    let server = quinn::Endpoint::server(config, args.addr)?;
 
     // Accept new connections.
     while let Some(conn) = server.accept().await {
@@ -69,7 +90,15 @@ async fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn run_conn(request: web_transport_quinn::Request) -> anyhow::Result<()> {
+async fn run_conn(conn: quinn::Incoming) -> anyhow::Result<()> {
+    log::info!("received new QUIC connection");
+
+    // Wait for the QUIC handshake to complete.
+    let conn = conn.await.context("failed to accept connection")?;
+    log::info!("established QUIC connection");
+
+    // Perform the WebTransport handshake.
+    let request = web_transport_quinn::Request::accept(conn).await?;
     log::info!("received WebTransport request: {}", request.url());
 
     // Accept the session.
