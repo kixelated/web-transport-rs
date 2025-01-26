@@ -6,34 +6,80 @@ pub use web_transport_quinn as quinn;
 
 pub use web_transport_quinn::CongestionControl;
 
-/// A client that can be used to configure and connect to a server.
+/// Create a [Client] that can be used to dial multiple [Session]s.
 #[derive(Default)]
-pub struct Client {
-    inner: quinn::Client,
+pub struct ClientBuilder {
+    inner: quinn::ClientBuilder,
 }
 
-impl Client {
+impl ClientBuilder {
     pub fn new() -> Self {
         Self::default()
     }
 
     /// Allow a lower latency congestion controller.
-    pub fn congestion_control(self, cc: CongestionControl) -> Self {
+    pub fn with_congestion_control(self, cc: CongestionControl) -> Self {
         Self {
-            inner: self.inner.congestion_control(cc),
+            inner: self.inner.with_congestion_control(cc),
         }
     }
 
     /// Accept the server's certificate hashes (sha256) instead of using a root CA.
-    pub fn server_certificate_hashes(self, hashes: Vec<Vec<u8>>) -> Self {
-        Self {
-            inner: self.inner.server_certificate_hashes(hashes),
-        }
+    pub fn with_server_certificate_hashes(self, hashes: Vec<Vec<u8>>) -> Result<Client, Error> {
+        Ok(Client {
+            inner: self.inner.with_server_certificate_hashes(hashes)?,
+        })
     }
 
+    /// Accept certificates using root CAs.
+    pub fn with_system_roots(self) -> Result<Client, Error> {
+        Ok(Client {
+            inner: self.inner.with_system_roots()?,
+        })
+    }
+}
+
+/// Used to dial multiple [Session]s.
+pub struct Client {
+    inner: quinn::Client,
+}
+
+impl Client {
     /// Connect to the server.
     pub async fn connect(&self, url: &Url) -> Result<Session, Error> {
         Ok(self.inner.connect(url).await?.into())
+    }
+}
+
+/// Used to accept incoming connections and create [Session]s. (native only)
+///
+/// NOTE: This is not supported in the WASM runtime, as browsers are clients.
+///
+/// Use a [web_transport_quinn::ServerBuilder] to create a [web_transport_quinn::Server] and then [Into<Server>].
+/// Alternatively, establish a [web_transport_quinn::Session] directly and then [Into<Session>].
+pub struct Server {
+    inner: quinn::Server,
+}
+
+impl From<quinn::Server> for Server {
+    fn from(server: quinn::Server) -> Self {
+        Self { inner: server }
+    }
+}
+
+impl Server {
+    /// Accept an incoming connection.
+    pub async fn accept(&mut self) -> Result<Option<Session>, Error> {
+        match self.inner.accept().await {
+            Some(session) => Ok(Some(
+                session
+                    .ok()
+                    .await
+                    .map_err(|e| Error::Write(e.into()))?
+                    .into(),
+            )),
+            None => Ok(None),
+        }
     }
 }
 

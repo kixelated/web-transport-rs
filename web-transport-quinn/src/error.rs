@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use thiserror::Error;
 
 use crate::{ConnectError, SettingsError};
@@ -194,6 +196,34 @@ impl From<quinn::StoppedError> for StoppedError {
             quinn::StoppedError::ZeroRttRejected => unreachable!("0-RTT not supported"),
         }
     }
+}
+
+/// An error returned when receiving a new WebTransport session.
+#[derive(Error, Debug, Clone)]
+pub enum ServerError {
+    #[error("unexpected end of stream")]
+    UnexpectedEnd,
+
+    #[error("connection error")]
+    Connection(#[from] quinn::ConnectionError),
+
+    #[error("failed to write")]
+    WriteError(#[from] quinn::WriteError),
+
+    #[error("failed to read")]
+    ReadError(#[from] quinn::ReadError),
+
+    #[error("failed to exchange h3 settings")]
+    SettingsError(#[from] SettingsError),
+
+    #[error("failed to exchange h3 connect")]
+    ConnectError(#[from] ConnectError),
+
+    #[error("io error: {0}")]
+    IoError(Arc<std::io::Error>),
+
+    #[error("rustls error: {0}")]
+    Rustls(#[from] rustls::Error),
 }
 
 // #[derive(Clone, Error, Debug)]

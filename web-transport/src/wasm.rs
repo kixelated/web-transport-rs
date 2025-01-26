@@ -6,29 +6,41 @@ pub use web_transport_wasm::CongestionControl;
 // Export the Wasm implementation to simplify Cargo.toml
 pub use web_transport_wasm as wasm;
 
+pub struct ClientBuilder {
+    inner: web_transport_wasm::ClientBuilder,
+}
+
+impl ClientBuilder {
+    pub fn new() -> Self {
+        Self {
+            inner: web_transport_wasm::ClientBuilder::new(),
+        }
+    }
+
+    pub fn with_congestion_control(self, cc: CongestionControl) -> Self {
+        Self {
+            inner: self.inner.with_congestion_control(cc),
+        }
+    }
+
+    pub fn with_server_certificate_hashes(self, hashes: Vec<Vec<u8>>) -> Result<Client, Error> {
+        Ok(Client {
+            inner: self.inner.with_server_certificate_hashes(hashes),
+        })
+    }
+
+    pub fn with_system_roots(self) -> Result<Client, Error> {
+        Ok(Client {
+            inner: self.inner.with_system_roots(),
+        })
+    }
+}
+
 pub struct Client {
     inner: web_transport_wasm::Client,
 }
 
 impl Client {
-    pub fn new() -> Self {
-        Self {
-            inner: web_transport_wasm::Client::new(),
-        }
-    }
-
-    pub fn congestion_control(self, cc: CongestionControl) -> Self {
-        Self {
-            inner: self.inner.congestion_control(cc),
-        }
-    }
-
-    pub fn server_certificate_hashes(self, hashes: Vec<Vec<u8>>) -> Self {
-        Self {
-            inner: self.inner.server_certificate_hashes(hashes),
-        }
-    }
-
     pub async fn connect(&self, url: &Url) -> Result<Session, Error> {
         Ok(self.inner.connect(url).await?.into())
     }
