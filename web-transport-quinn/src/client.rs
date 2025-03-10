@@ -28,7 +28,7 @@ pub struct ClientBuilder {
 impl ClientBuilder {
     /// Create a Client builder, which can be used to establish multiple [Session]s.
     pub fn new() -> Self {
-        #[cfg(feature = "aws-lc-rs")]
+        #[cfg(all(feature = "aws-lc-rs", not(feature = "ring")))]
         let provider = rustls::crypto::aws_lc_rs::default_provider();
 
         #[cfg(feature = "ring")]
@@ -97,7 +97,7 @@ impl ClientBuilder {
         certs: Vec<CertificateDer>,
     ) -> Result<Client, ClientError> {
         let hashes = certs.iter().map(|cert| {
-            #[cfg(feature = "aws-lc-rs")]
+            #[cfg(all(feature = "aws-lc-rs", not(feature = "ring")))]
             let digest = aws_lc_rs::digest::digest(&aws_lc_rs::digest::SHA256, cert)
                 .as_ref()
                 .to_vec();
@@ -252,7 +252,7 @@ impl ServerCertVerifier for ServerFingerprints {
         _ocsp_response: &[u8],
         _now: rustls::pki_types::UnixTime,
     ) -> Result<rustls::client::danger::ServerCertVerified, rustls::Error> {
-        #[cfg(feature = "aws-lc-rs")]
+        #[cfg(all(feature = "aws-lc-rs", not(feature = "ring")))]
         let cert_hash = aws_lc_rs::digest::digest(&aws_lc_rs::digest::SHA256, end_entity);
 
         #[cfg(feature = "ring")]

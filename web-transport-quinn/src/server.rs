@@ -58,7 +58,7 @@ impl ServerBuilder {
         chain: Vec<CertificateDer<'static>>,
         key: PrivateKeyDer<'static>,
     ) -> Result<Server, ServerError> {
-        #[cfg(feature = "aws-lc-rs")]
+        #[cfg(all(feature = "aws-lc-rs", not(feature = "ring")))]
         let provider = rustls::crypto::aws_lc_rs::default_provider();
 
         #[cfg(feature = "ring")]
