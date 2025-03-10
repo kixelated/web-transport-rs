@@ -1,5 +1,6 @@
 use std::{
     collections::HashMap,
+    fmt::Debug,
     ops::{Deref, DerefMut},
 };
 
@@ -9,7 +10,7 @@ use thiserror::Error;
 
 use super::{Frame, StreamUni, VarInt, VarIntUnexpectedEnd};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Setting(pub VarInt);
 
 impl Setting {
@@ -19,6 +20,36 @@ impl Setting {
 
     pub fn encode<B: BufMut>(&self, buf: &mut B) {
         self.0.encode(buf)
+    }
+
+    // Reference : https://datatracker.ietf.org/doc/html/rfc9114#section-7.2.4.1
+    pub fn is_grease(&self) -> bool {
+        let val = self.0.into_inner();
+        if val < 0x21 {
+            return false;
+        }
+
+        (val - 0x21) % 0x1f == 0
+    }
+}
+
+impl Debug for Setting {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match *self {
+            Setting::QPACK_MAX_TABLE_CAPACITY => write!(f, "QPACK_MAX_TABLE_CAPACITY"),
+            Setting::MAX_FIELD_SECTION_SIZE => write!(f, "MAX_FIELD_SECTION_SIZE"),
+            Setting::QPACK_BLOCKED_STREAMS => write!(f, "QPACK_BLOCKED_STREAMS"),
+            Setting::ENABLE_CONNECT_PROTOCOL => write!(f, "ENABLE_CONNECT_PROTOCOL"),
+            Setting::ENABLE_DATAGRAM => write!(f, "ENABLE_DATAGRAM"),
+            Setting::ENABLE_DATAGRAM_DEPRECATED => write!(f, "ENABLE_DATAGRAM_DEPRECATED"),
+            Setting::WEBTRANSPORT_ENABLE_DEPRECATED => write!(f, "WEBTRANSPORT_ENABLE_DEPRECATED"),
+            Setting::WEBTRANSPORT_MAX_SESSIONS_DEPRECATED => {
+                write!(f, "WEBTRANSPORT_MAX_SESSIONS_DEPRECATED")
+            }
+            Setting::WEBTRANSPORT_MAX_SESSIONS => write!(f, "WEBTRANSPORT_MAX_SESSIONS"),
+            x if x.is_grease() => write!(f, "GREASE SETTING [{:x?}]", x.0.into_inner()),
+            x => write!(f, "UNKNOWN_SETTING [{:x?}]", x.0.into_inner()),
+        }
     }
 }
 
@@ -85,7 +116,10 @@ impl Settings {
             // These return a different error because retrying won't help.
             let id = Setting::decode(&mut data).map_err(|_| SettingsError::InvalidSize)?;
             let value = VarInt::decode(&mut data).map_err(|_| SettingsError::InvalidSize)?;
-            settings.0.insert(id, value);
+            // Only add if it is not grease
+            if !id.is_grease() {
+                settings.0.insert(id, value);
+            }
         }
 
         Ok(settings)
