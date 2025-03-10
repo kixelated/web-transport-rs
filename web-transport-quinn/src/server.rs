@@ -60,7 +60,7 @@ impl ServerBuilder {
     ) -> Result<Server, ServerError> {
         // Standard Quinn setup
         let mut config = rustls::ServerConfig::builder_with_provider(Arc::new(
-            rustls::crypto::aws_lc_rs::default_provider(),
+            rustls::crypto::ring::default_provider(),
         ))
         .with_protocol_versions(&[&rustls::version::TLS13])?
         .with_no_client_auth()
