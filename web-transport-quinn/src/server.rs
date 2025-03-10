@@ -58,13 +58,17 @@ impl ServerBuilder {
         chain: Vec<CertificateDer<'static>>,
         key: PrivateKeyDer<'static>,
     ) -> Result<Server, ServerError> {
+        #[cfg(feature = "aws-lc-rs")]
+        let provider = rustls::crypto::aws_lc_rs::default_provider();
+
+        #[cfg(feature = "ring")]
+        let provider = rustls::crypto::ring::default_provider();
+
         // Standard Quinn setup
-        let mut config = rustls::ServerConfig::builder_with_provider(Arc::new(
-            rustls::crypto::ring::default_provider(),
-        ))
-        .with_protocol_versions(&[&rustls::version::TLS13])?
-        .with_no_client_auth()
-        .with_single_cert(chain, key)?;
+        let mut config = rustls::ServerConfig::builder_with_provider(Arc::new(provider))
+            .with_protocol_versions(&[&rustls::version::TLS13])?
+            .with_no_client_auth()
+            .with_single_cert(chain, key)?;
 
         config.alpn_protocols = vec![crate::ALPN.to_vec()]; // this one is important
 

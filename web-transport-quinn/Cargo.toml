@@ -12,7 +12,7 @@ keywords = ["quic", "http3", "webtransport"]
 categories = ["network-programming", "web-programming"]
 
 [features]
-default = ["ring"]
+default = ["aws-lc-rs"]
 aws-lc-rs = ["dep:aws-lc-rs"]
 ring = ["dep:ring"]
 
