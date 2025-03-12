@@ -26,6 +26,7 @@
 // External
 mod client;
 mod error;
+mod provider;
 mod recv;
 mod send;
 mod server;
@@ -33,6 +34,7 @@ mod session;
 
 pub use client::*;
 pub use error::*;
+pub(crate) use provider::*;
 pub use recv::*;
 pub use send::*;
 pub use server::*;

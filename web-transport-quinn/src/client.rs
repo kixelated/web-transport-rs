@@ -6,7 +6,7 @@ use url::Url;
 use quinn::{crypto::rustls::QuicClientConfig, rustls};
 use rustls::{client::danger::ServerCertVerifier, pki_types::CertificateDer};
 
-use crate::{ClientError, Session, ALPN};
+use crate::{ClientError, Provider, Session, ALPN};
 
 // Copies the Web options, hiding the actual implementation.
 /// Allows specifying a class of congestion control algorithm.
@@ -29,7 +29,7 @@ impl ClientBuilder {
     /// Create a Client builder, which can be used to establish multiple [Session]s.
     pub fn new() -> Self {
         Self {
-            provider: Arc::new(rustls::crypto::aws_lc_rs::default_provider()),
+            provider: Arc::new(Provider::default()),
             congestion_controller: None,
         }
     }
@@ -90,11 +90,9 @@ impl ClientBuilder {
         self,
         certs: Vec<CertificateDer>,
     ) -> Result<Client, ClientError> {
-        let hashes = certs.iter().map(|cert| {
-            aws_lc_rs::digest::digest(&aws_lc_rs::digest::SHA256, cert)
-                .as_ref()
-                .to_vec()
-        });
+        let hashes = certs
+            .iter()
+            .map(|cert| Provider::sha256(cert).as_ref().to_vec());
 
         self.with_server_certificate_hashes(hashes.collect())
     }
@@ -238,8 +236,7 @@ impl ServerCertVerifier for ServerFingerprints {
         _ocsp_response: &[u8],
         _now: rustls::pki_types::UnixTime,
     ) -> Result<rustls::client::danger::ServerCertVerified, rustls::Error> {
-        let cert_hash = aws_lc_rs::digest::digest(&aws_lc_rs::digest::SHA256, end_entity);
-
+        let cert_hash = Provider::sha256(end_entity);
         if self
             .fingerprints
             .iter()

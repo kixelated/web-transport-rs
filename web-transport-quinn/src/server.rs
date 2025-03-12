@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::{CongestionControl, Connect, ServerError, Session, Settings};
+use crate::{CongestionControl, Connect, Provider, ServerError, Session, Settings};
 
 use futures::{future::BoxFuture, stream::FuturesUnordered, StreamExt};
 use rustls::pki_types::{CertificateDer, PrivateKeyDer};
@@ -59,12 +59,10 @@ impl ServerBuilder {
         key: PrivateKeyDer<'static>,
     ) -> Result<Server, ServerError> {
         // Standard Quinn setup
-        let mut config = rustls::ServerConfig::builder_with_provider(Arc::new(
-            rustls::crypto::aws_lc_rs::default_provider(),
-        ))
-        .with_protocol_versions(&[&rustls::version::TLS13])?
-        .with_no_client_auth()
-        .with_single_cert(chain, key)?;
+        let mut config = rustls::ServerConfig::builder_with_provider(Arc::new(Provider::default()))
+            .with_protocol_versions(&[&rustls::version::TLS13])?
+            .with_no_client_auth()
+            .with_single_cert(chain, key)?;
 
         config.alpn_protocols = vec![crate::ALPN.to_vec()]; // this one is important
 
