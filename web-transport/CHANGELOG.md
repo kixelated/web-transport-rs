@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.1](https://github.com/kixelated/web-transport-rs/compare/web-transport-v0.8.0...web-transport-v0.8.1) - 2025-03-26
+
+### Other
+
+- Adding with_unreliable shim functions to wasm/quinn ClientBuilders for easier generic use ([#64](https://github.com/kixelated/web-transport-rs/pull/64))
+
 ## [0.8.0](https://github.com/kixelated/web-transport-rs/compare/web-transport-v0.7.1...web-transport-v0.8.0) - 2025-01-26
 
 ### Other
