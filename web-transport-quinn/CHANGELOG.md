@@ -6,6 +6,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.1](https://github.com/kixelated/web-transport-rs/compare/web-transport-quinn-v0.5.0...web-transport-quinn-v0.5.1) - 2025-03-26
+
+### Fixed
+
+- completely remove aws-lc when feature is off ([#69](https://github.com/kixelated/web-transport-rs/pull/69))
+
+### Other
+
+- Added Ring feature flag ([#68](https://github.com/kixelated/web-transport-rs/pull/68))
+- Adding with_unreliable shim functions to wasm/quinn ClientBuilders for easier generic use ([#64](https://github.com/kixelated/web-transport-rs/pull/64))
+
 ## [0.5.0](https://github.com/kixelated/web-transport-rs/compare/web-transport-quinn-v0.4.1...web-transport-quinn-v0.5.0) - 2025-01-26
 
 ### Other
