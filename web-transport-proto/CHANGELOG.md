@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.6](https://github.com/kixelated/web-transport-rs/compare/web-transport-proto-v0.2.5...web-transport-proto-v0.2.6) - 2025-04-18
+
+### Other
+
+- Add url query to CONNECT :path request ([#70](https://github.com/kixelated/web-transport-rs/pull/70))
+
 ## [0.2.5](https://github.com/kixelated/web-transport-rs/compare/web-transport-proto-v0.2.4...web-transport-proto-v0.2.5) - 2025-03-26
 
 ### Other
