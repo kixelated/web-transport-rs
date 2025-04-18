@@ -76,7 +76,10 @@ impl ConnectRequest {
             .get(":authority")
             .ok_or(ConnectError::WrongAuthority)?;
 
-        let path = headers.get(":path").ok_or(ConnectError::WrongPath)?;
+        let path_and_query = match headers.get(":path") {
+            Some(path_and_query) => path_and_query,
+            None => return Err(ConnectError::WrongPath),
+        };
 
         let method = headers.get(":method");
         match method
@@ -92,7 +95,7 @@ impl ConnectRequest {
             return Err(ConnectError::WrongProtocol(protocol.map(|s| s.to_string())));
         }
 
-        let url = Url::parse(&format!("{}://{}{}", scheme, authority, path))?;
+        let url = Url::parse(&format!("{}://{}{}", scheme, authority, path_and_query))?;
 
         Ok(Self { url })
     }
@@ -102,7 +105,11 @@ impl ConnectRequest {
         headers.set(":method", "CONNECT");
         headers.set(":scheme", self.url.scheme());
         headers.set(":authority", self.url.authority());
-        headers.set(":path", self.url.path());
+        let path_and_query = match self.url.query() {
+            Some(query) => format!("{}?{}", self.url.path(), query),
+            None => self.url.path().to_string(),
+        };
+        headers.set(":path", &path_and_query);
         headers.set(":protocol", "webtransport");
 
         // Use a temporary buffer so we can compute the size.
