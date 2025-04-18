@@ -107,7 +107,6 @@ impl ConnectRequest {
             .query()
             .map(|query| format!("{}?{}", self.url.path(), query))
             .unwrap_or(self.url.path().to_string());
-
         headers.set(":path", &path_and_query);
         headers.set(":protocol", "webtransport");
 
