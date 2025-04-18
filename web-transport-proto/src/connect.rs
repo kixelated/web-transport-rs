@@ -76,10 +76,7 @@ impl ConnectRequest {
             .get(":authority")
             .ok_or(ConnectError::WrongAuthority)?;
 
-        let path_and_query = match headers.get(":path") {
-            Some(path_and_query) => path_and_query,
-            None => return Err(ConnectError::WrongPath),
-        };
+        let path_and_query = headers.get(":path").ok_or(ConnectError::WrongPath)?;
 
         let method = headers.get(":method");
         match method
