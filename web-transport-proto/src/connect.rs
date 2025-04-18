@@ -102,10 +102,12 @@ impl ConnectRequest {
         headers.set(":method", "CONNECT");
         headers.set(":scheme", self.url.scheme());
         headers.set(":authority", self.url.authority());
-        let path_and_query = match self.url.query() {
-            Some(query) => format!("{}?{}", self.url.path(), query),
-            None => self.url.path().to_string(),
-        };
+        let path_and_query = self
+            .url
+            .query()
+            .map(|query| format!("{}?{}", self.url.path(), query))
+            .unwrap_or(self.url.path().to_string());
+
         headers.set(":path", &path_and_query);
         headers.set(":protocol", "webtransport");
 
