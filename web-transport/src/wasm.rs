@@ -10,6 +10,12 @@ pub struct ClientBuilder {
     inner: web_transport_wasm::ClientBuilder,
 }
 
+impl Default for ClientBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ClientBuilder {
     pub fn new() -> Self {
         Self {
@@ -123,6 +129,11 @@ impl SendStream {
     pub fn reset(&mut self, code: u32) {
         self.0.reset(&code.to_string())
     }
+
+    /// Block until the stream has been closed and return the error code, if any.
+    pub async fn closed(&mut self) -> Result<Option<u8>, Error> {
+        self.0.closed().await
+    }
 }
 
 pub struct RecvStream(web_transport_wasm::RecvStream);
@@ -141,6 +152,11 @@ impl RecvStream {
     /// Send a `STOP_SENDING` QUIC code.
     pub fn stop(&mut self, code: u32) {
         self.0.stop(&code.to_string())
+    }
+
+    /// Block until the stream has been closed and return the error code, if any.
+    pub async fn closed(&mut self) -> Result<Option<u8>, Error> {
+        self.0.closed().await
     }
 }
 

@@ -179,25 +179,6 @@ impl From<quinn::ClosedStream> for ClosedStream {
     }
 }
 
-/// An error returned by [`crate::SendStream::stopped`]. Similar to [`quinn::StoppedError`].
-#[derive(Clone, Error, Debug)]
-pub enum StoppedError {
-    #[error("session error: {0}")]
-    SessionError(#[from] SessionError),
-
-    #[error("stream already closed")]
-    Closed,
-}
-
-impl From<quinn::StoppedError> for StoppedError {
-    fn from(e: quinn::StoppedError) -> Self {
-        match e {
-            quinn::StoppedError::ConnectionLost(e) => StoppedError::SessionError(e.into()),
-            quinn::StoppedError::ZeroRttRejected => unreachable!("0-RTT not supported"),
-        }
-    }
-}
-
 /// An error returned when receiving a new WebTransport session.
 #[derive(Error, Debug, Clone)]
 pub enum ServerError {

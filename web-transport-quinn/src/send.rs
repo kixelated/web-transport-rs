@@ -6,7 +6,7 @@ use std::{
 
 use bytes::Bytes;
 
-use crate::{ClosedStream, StoppedError, WriteError};
+use crate::{ClosedStream, SessionError, WriteError};
 
 /// A stream that can be used to send bytes. See [`quinn::SendStream`].
 ///
@@ -31,12 +31,16 @@ impl SendStream {
     }
 
     /// Wait until the stream has been stopped and return the error code. See [`quinn::SendStream::stopped`].
+    ///
     /// Unlike Quinn, this returns None if the code is not a valid WebTransport error code.
-    pub async fn stopped(&mut self) -> Result<Option<u32>, StoppedError> {
-        Ok(match self.stream.stopped().await? {
-            Some(code) => web_transport_proto::error_from_http3(code.into_inner()),
-            None => None,
-        })
+    /// Also unlike Quinn, this returns a SessionError, not a StoppedError, because 0-RTT is not supported.
+    pub async fn stopped(&mut self) -> Result<Option<u32>, SessionError> {
+        match self.stream.stopped().await {
+            Ok(Some(code)) => Ok(web_transport_proto::error_from_http3(code.into_inner())),
+            Ok(None) => Ok(None),
+            Err(quinn::StoppedError::ConnectionLost(e)) => Err(e.into()),
+            Err(quinn::StoppedError::ZeroRttRejected) => unreachable!("0-RTT not supported"),
+        }
     }
 
     // Unfortunately, we have to wrap WriteError for a bunch of functions.

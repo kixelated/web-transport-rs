@@ -69,6 +69,23 @@ impl RecvStream {
     pub fn stop(&mut self, reason: &str) {
         self.reader.abort(reason);
     }
+
+    /// Block until the stream has been closed and return the error code, if any.
+    pub async fn closed(&self) -> Result<Option<u8>, Error> {
+        let err = match self.reader.closed().await {
+            Ok(()) => return Ok(None),
+            Err(err) => Error::from(err),
+        };
+
+        // If it's a WebTransportError, we can extract the error code.
+        if let Error::Stream(err) = &err {
+            if let Some(code) = err.stream_error_code() {
+                return Ok(Some(code));
+            }
+        }
+
+        Err(err)
+    }
 }
 
 impl Drop for RecvStream {

@@ -15,35 +15,34 @@ categories = ["network-programming", "web-programming"]
 default = ["aws-lc-rs"]
 aws-lc-rs = ["dep:aws-lc-rs", "quinn/aws-lc-rs", "rustls/aws-lc-rs"]
 ring = ["dep:ring", "quinn/ring", "rustls/ring"]
-
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-web-transport-proto = { path = "../web-transport-proto", version = "0.2" }
+aws-lc-rs = { version = "1", optional = true }
+
+bytes = "1"
+futures = "0.3"
+http = "1"
+log = "0.4"
 
 quinn = "0.11"
 quinn-proto = "0.11"
-
-bytes = "1"
-http = "1"
-thiserror = "2"
-futures = "0.3"
-url = "2"
-log = "0.4"
+ring = { version = "0.17.13", optional = true }
 
 rustls = { version = "0.23", default-features = false, features = ["logging", "std"] }
 rustls-native-certs = "0.8"
-aws-lc-rs = { version = "1", optional = true }
-ring = { version = "0.17.13", optional = true }
+thiserror = "2"
 
 tokio = { version = "1", default-features = false, features = ["macros"] }
+url = "2"
+web-transport-proto = { path = "../web-transport-proto", version = "0.2" }
 
 [dev-dependencies]
 anyhow = "1"
-tokio = { version = "1", features = ["full"] }
-env_logger = "0.11"
 clap = { version = "4", features = ["derive"] }
-rustls-pemfile = "2"
-rustls = "0.23"
+env_logger = "0.11"
 quinn = "0.11"
 quinn-proto = "0.11"
+rustls = "0.23"
+rustls-pemfile = "2"
+tokio = { version = "1", features = ["full"] }

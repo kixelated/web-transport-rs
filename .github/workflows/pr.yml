@@ -20,17 +20,15 @@ jobs:
           target: wasm32-unknown-unknown
           components: clippy, rustfmt
 
+      # Install Just to run CI scripts
+      - uses: extractions/setup-just@v3
+
+      # Cargo binstall is used to install tools faster than compiling them from source.
+      - uses: cargo-bins/cargo-binstall@main
+      - run: just setup-tools
+
       # Set RUSTFLAGS
       - run: echo "RUSTFLAGS=--cfg=web_sys_unstable_apis" >> $GITHUB_ENV
 
       # Make sure u guys don't write bad code
-      - run: cargo test --verbose
-      - run: cargo clippy --no-deps -- -D warnings
-      - run: cargo fmt --check
-
-      # Same but for WASM
-      - run: cargo check -p web-transport -p web-transport-wasm --verbose --target wasm32-unknown-unknown
-      - run: cargo clippy -p web-transport -p web-transport-wasm --no-deps --target wasm32-unknown-unknown
-
-      # Check for unused dependencies
-      - uses: bnjbvr/cargo-machete@main
+      - run: just check

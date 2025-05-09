@@ -12,13 +12,16 @@ keywords = ["quic", "http3", "webtransport"]
 categories = ["network-programming", "web-programming"]
 
 [dependencies]
-wasm-bindgen = "0.2"
-wasm-bindgen-futures = "0.4"
-js-sys = "0.3.76"
 bytes = "1"
+js-sys = "0.3.76"
 thiserror = "2"
 url = "2"
-web-streams = "0.1"
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+web-streams = { path = "../../web-rs/web-streams" }
+
+[package.metadata.docs.rs]
+rustdoc-args = ["--cfg=web_sys_unstable_apis"]
 
 [dependencies.web-sys]
 version = "0.3.76"
@@ -40,6 +43,3 @@ features = [
     "WritableStream",
     "WritableStreamDefaultWriter",
 ]
-
-[package.metadata.docs.rs]
-rustdoc-args = ["--cfg=web_sys_unstable_apis"]
