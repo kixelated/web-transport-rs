@@ -42,6 +42,14 @@ impl SendStream {
         self.writer.abort(reason);
     }
 
+    /// Mark the stream as finished.
+    ///
+    /// This is automatically called on Drop, but can be called manually.
+    pub fn finish(&mut self) -> Result<(), Error> {
+        self.writer.close();
+        Ok(())
+    }
+
     /// Set the stream's priority.
     ///
     /// Streams with **higher** values are sent first, but are not guaranteed to arrive first.

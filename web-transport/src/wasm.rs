@@ -130,6 +130,14 @@ impl SendStream {
         self.0.reset(&code.to_string())
     }
 
+    /// Mark the stream as finished.
+    ///
+    /// This is automatically called on Drop, but can be called manually.
+    pub fn finish(&mut self) -> Result<(), Error> {
+        self.0.finish()?;
+        Ok(())
+    }
+
     /// Block until the stream has been closed and return the error code, if any.
     pub async fn closed(&mut self) -> Result<Option<u8>, Error> {
         self.0.closed().await

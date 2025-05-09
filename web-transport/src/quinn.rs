@@ -213,6 +213,16 @@ impl SendStream {
         self.inner.reset(code).ok();
     }
 
+    /// Mark the stream as finished.
+    ///
+    /// This is automatically called on Drop, but can be called manually.
+    pub fn finish(&mut self) -> Result<(), Error> {
+        self.inner
+            .finish()
+            .map_err(|_| Error::Write(quinn::WriteError::ClosedStream))?;
+        Ok(())
+    }
+
     /// Block until the stream is closed by either side.
     ///
     /// This returns a (potentially truncated) u8 because that's what the WASM implementation returns.
