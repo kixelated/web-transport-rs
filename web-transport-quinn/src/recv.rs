@@ -6,7 +6,7 @@ use std::{
 
 use bytes::Bytes;
 
-use crate::{ReadError, ReadExactError, ReadToEndError};
+use crate::{ReadError, ReadExactError, ReadToEndError, SessionError};
 
 /// A stream that can be used to recieve bytes. See [`quinn::RecvStream`].
 #[derive(Debug)]
@@ -59,6 +59,20 @@ impl RecvStream {
     /// Read until the end of the stream or the limit is hit. See [`quinn::RecvStream::read_to_end`].
     pub async fn read_to_end(&mut self, size_limit: usize) -> Result<Vec<u8>, ReadToEndError> {
         self.inner.read_to_end(size_limit).await.map_err(Into::into)
+    }
+
+    /// Block until the stream has been reset and return the error code. See [`quinn::RecvStream::received_reset`].
+    ///
+    /// Unlike Quinn, this returns a SessionError, not a ResetError, because 0-RTT is not supported.
+    pub async fn received_reset(&mut self) -> Result<Option<u32>, SessionError> {
+        match self.inner.received_reset().await {
+            Ok(None) => Ok(None),
+            Ok(Some(code)) => Ok(Some(
+                web_transport_proto::error_from_http3(code.into_inner()).unwrap(),
+            )),
+            Err(quinn::ResetError::ConnectionLost(e)) => Err(e.into()),
+            Err(quinn::ResetError::ZeroRttRejected) => unreachable!("0-RTT not supported"),
+        }
     }
 
     // We purposely don't expose the stream ID or 0RTT because it's not valid with WebTransport

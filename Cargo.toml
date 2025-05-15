@@ -1,8 +1,8 @@
 [workspace]
 members = [
-    "web-transport-quinn",
-    "web-transport-proto",
-    "web-transport-wasm",
     "web-transport",
+    "web-transport-proto",
+    "web-transport-quinn",
+    "web-transport-wasm",
 ]
 resolver = "2"

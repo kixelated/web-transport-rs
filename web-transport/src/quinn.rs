@@ -212,6 +212,28 @@ impl SendStream {
     pub fn reset(&mut self, code: u32) {
         self.inner.reset(code).ok();
     }
+
+    /// Mark the stream as finished.
+    ///
+    /// This is automatically called on Drop, but can be called manually.
+    pub fn finish(&mut self) -> Result<(), Error> {
+        self.inner
+            .finish()
+            .map_err(|_| Error::Write(quinn::WriteError::ClosedStream))?;
+        Ok(())
+    }
+
+    /// Block until the stream is closed by either side.
+    ///
+    /// This returns a (potentially truncated) u8 because that's what the WASM implementation returns.
+    // TODO this should be &self but requires modifying quinn.
+    pub async fn closed(&mut self) -> Result<Option<u8>, Error> {
+        match self.inner.stopped().await {
+            Ok(None) => Ok(None),
+            Ok(Some(code)) => Ok(Some(code as u8)),
+            Err(e) => Err(Error::Session(e)),
+        }
+    }
 }
 
 /// An incoming stream of bytes from the peer.
@@ -259,6 +281,19 @@ impl RecvStream {
     /// Send a `STOP_SENDING` QUIC code.
     pub fn stop(&mut self, code: u32) {
         self.inner.stop(code).ok();
+    }
+
+    /// Block until the stream has been closed and return the error code, if any.
+    ///
+    /// This returns a (potentially truncated) u8 because that's what the WASM implementation returns.
+    /// web-transport-quinn returns a u32 because that's what the specification says.
+    // TODO Validate the correct behavior.
+    pub async fn closed(&mut self) -> Result<Option<u8>, Error> {
+        match self.inner.received_reset().await {
+            Ok(None) => Ok(None),
+            Ok(Some(code)) => Ok(Some(code as u8)),
+            Err(e) => Err(Error::Session(e)),
+        }
     }
 }
 

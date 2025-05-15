@@ -42,12 +42,37 @@ impl SendStream {
         self.writer.abort(reason);
     }
 
+    /// Mark the stream as finished.
+    ///
+    /// This is automatically called on Drop, but can be called manually.
+    pub fn finish(&mut self) -> Result<(), Error> {
+        self.writer.close();
+        Ok(())
+    }
+
     /// Set the stream's priority.
     ///
     /// Streams with **higher** values are sent first, but are not guaranteed to arrive first.
     pub fn set_priority(&mut self, priority: i32) {
         Reflect::set(&self.stream, &"sendOrder".into(), &priority.into())
             .expect("failed to set priority");
+    }
+
+    /// Block until the stream has been closed and return the error code, if any.
+    pub async fn closed(&self) -> Result<Option<u8>, Error> {
+        let err = match self.writer.closed().await {
+            Ok(()) => return Ok(None),
+            Err(err) => Error::from(err),
+        };
+
+        // If it's a WebTransportError, we can extract the error code.
+        if let Error::Stream(err) = &err {
+            if let Some(code) = err.stream_error_code() {
+                return Ok(Some(code));
+            }
+        }
+
+        Err(err)
     }
 }
 

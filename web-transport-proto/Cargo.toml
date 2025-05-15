@@ -10,11 +10,10 @@ edition = "2021"
 
 keywords = ["quic", "http3", "webtransport"]
 categories = ["network-programming", "web-programming"]
-
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-http = "1"
 bytes = "1"
+http = "1"
 thiserror = "2"
 url = "2"
