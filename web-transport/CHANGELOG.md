@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.2](https://github.com/kixelated/web-transport-rs/compare/web-transport-v0.8.1...web-transport-v0.8.2) - 2025-05-15
+
+### Other
+
+- Add (generic) support for learning when a stream is closed. ([#73](https://github.com/kixelated/web-transport-rs/pull/73))
+
 ## [0.8.1](https://github.com/kixelated/web-transport-rs/compare/web-transport-v0.8.0...web-transport-v0.8.1) - 2025-03-26
 
 ### Other
