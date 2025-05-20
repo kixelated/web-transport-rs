@@ -98,6 +98,11 @@ impl Session {
     pub async fn recv_datagram(&mut self) -> Result<Bytes, Error> {
         self.0.recv_datagram().await
     }
+
+    /// Return the URL used to create the session.
+    pub fn url(&self) -> &Url {
+        self.0.url()
+    }
 }
 
 impl From<web_transport_wasm::Session> for Session {

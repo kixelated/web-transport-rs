@@ -66,7 +66,7 @@ async fn main() -> anyhow::Result<()> {
     .with_single_cert(chain, key)?;
 
     config.max_early_data_size = u32::MAX;
-    config.alpn_protocols = vec![web_transport_quinn::ALPN.to_vec()]; // this one is important
+    config.alpn_protocols = vec![web_transport_quinn::ALPN.as_bytes().to_vec()]; // this one is important
 
     let config: quinn::crypto::rustls::QuicServerConfig = config.try_into()?;
     let config = quinn::ServerConfig::with_crypto(Arc::new(config));

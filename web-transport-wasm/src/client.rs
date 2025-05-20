@@ -74,10 +74,10 @@ pub struct Client {
 
 impl Client {
     /// Connect once the builder is configured.
-    pub async fn connect(&self, url: &Url) -> Result<Session, Error> {
+    pub async fn connect(&self, url: Url) -> Result<Session, Error> {
         let inner = WebTransport::new_with_options(url.as_str(), &self.options)?;
         JsFuture::from(inner.ready()).await?;
 
-        Ok(inner.into())
+        Ok(Session::new(inner, url))
     }
 }

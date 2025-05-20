@@ -64,7 +64,7 @@ impl ServerBuilder {
             .with_no_client_auth()
             .with_single_cert(chain, key)?;
 
-        config.alpn_protocols = vec![crate::ALPN.to_vec()]; // this one is important
+        config.alpn_protocols = vec![crate::ALPN.as_bytes().to_vec()]; // this one is important
 
         let config: quinn::crypto::rustls::QuicServerConfig = config.try_into().unwrap();
         let config = quinn::ServerConfig::with_crypto(Arc::new(config));

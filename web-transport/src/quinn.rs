@@ -161,6 +161,11 @@ impl Session {
     pub async fn closed(&self) -> Error {
         self.inner.closed().await.into()
     }
+
+    /// Return the URL used to create the session.
+    pub fn url(&self) -> &Url {
+        self.inner.url()
+    }
 }
 
 /// Convert a `web_transport_quinn::Session` into a `web_transport::Session`.

@@ -142,7 +142,7 @@ impl ClientBuilder {
     }
 
     fn build(self, mut crypto: rustls::ClientConfig) -> Result<Client, ClientError> {
-        crypto.alpn_protocols = vec![ALPN.to_vec()];
+        crypto.alpn_protocols = vec![ALPN.as_bytes().to_vec()];
 
         let client_config = QuicClientConfig::try_from(crypto).unwrap();
         let mut client_config = quinn::ClientConfig::new(Arc::new(client_config));
