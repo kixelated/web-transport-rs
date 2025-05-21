@@ -87,7 +87,7 @@ impl Session {
 
     /// Connect using an established QUIC connection if you want to create the connection yourself.
     /// This will only work with a brand new QUIC connection using the HTTP/3 ALPN.
-    pub async fn connect(conn: quinn::Connection, url: &Url) -> Result<Session, ClientError> {
+    pub async fn connect(conn: quinn::Connection, url: Url) -> Result<Session, ClientError> {
         // Perform the H3 handshake by sending/reciving SETTINGS frames.
         let settings = Settings::connect(&conn).await?;
 

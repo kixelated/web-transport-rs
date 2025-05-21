@@ -183,7 +183,7 @@ impl Client {
     }
 
     /// Connect to the server.
-    pub async fn connect(&self, url: &Url) -> Result<Session, ClientError> {
+    pub async fn connect(&self, url: Url) -> Result<Session, ClientError> {
         // TODO error on username:password in host
         let host = url
             .host()
