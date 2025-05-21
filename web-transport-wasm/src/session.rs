@@ -1,5 +1,6 @@
 use bytes::Bytes;
 use js_sys::Uint8Array;
+use url::Url;
 use wasm_bindgen_futures::JsFuture;
 use web_sys::{
     WebTransport, WebTransportBidirectionalStream, WebTransportCloseInfo, WebTransportSendStream,
@@ -18,9 +19,14 @@ use web_streams::{Reader, Writer};
 #[derive(Clone)]
 pub struct Session {
     inner: WebTransport,
+    url: Url,
 }
 
 impl Session {
+    pub fn new(inner: WebTransport, url: Url) -> Self {
+        Self { inner, url }
+    }
+
     /// Accept a new unidirectional stream from the peer.
     pub async fn accept_uni(&mut self) -> Result<RecvStream, Error> {
         let mut reader = Reader::new(&self.inner.incoming_unidirectional_streams())?;
@@ -111,6 +117,11 @@ impl Session {
         let err = web_sys::WebTransportError::new_with_message_and_options(&reason, &options)?;
         Err(Error::Session(err))
     }
+
+    /// Return the URL used to create the session.
+    pub fn url(&self) -> &Url {
+        &self.url
+    }
 }
 
 impl PartialEq for Session {
@@ -120,9 +131,3 @@ impl PartialEq for Session {
 }
 
 impl Eq for Session {}
-
-impl From<WebTransport> for Session {
-    fn from(inner: WebTransport) -> Self {
-        Session { inner }
-    }
-}

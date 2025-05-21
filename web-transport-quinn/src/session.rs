@@ -47,6 +47,9 @@ pub struct Session {
     settings: Option<Arc<Settings>>,
     #[allow(dead_code)]
     connect: Option<Arc<Connect>>,
+
+    // The URL used to create the session.
+    url: Url,
 }
 
 impl Session {
@@ -76,6 +79,7 @@ impl Session {
             header_uni,
             header_bi,
             header_datagram,
+            url: connect.url().clone(),
             settings: Some(Arc::new(settings)),
             connect: Some(Arc::new(connect)),
         }
@@ -241,6 +245,28 @@ impl Session {
             Err(err) => Err(WebTransportError::WriteError(err).into()),
         }
     }
+
+    /// Create a new session from a raw QUIC connection and a URL.
+    ///
+    /// This is used to pretend like a QUIC connection is a WebTransport session.
+    /// It's a hack, but it makes it much easier to support WebTransport and raw QUIC simultaneously.
+    pub fn raw(conn: quinn::Connection, url: Url) -> Self {
+        Self {
+            conn,
+            session_id: None,
+            header_uni: Default::default(),
+            header_bi: Default::default(),
+            header_datagram: Default::default(),
+            accept: None,
+            settings: None,
+            connect: None,
+            url,
+        }
+    }
+
+    pub fn url(&self) -> &Url {
+        &self.url
+    }
 }
 
 impl Deref for Session {
@@ -264,23 +290,6 @@ impl PartialEq for Session {
 }
 
 impl Eq for Session {}
-
-impl From<quinn::Connection> for Session {
-    /// Create a QuicTransport session without a Session ID or HTTP/3 nonsense.
-    /// This is a bit of a hack for MoQ, so it can support both WebTransport and raw QUIC.
-    fn from(conn: quinn::Connection) -> Self {
-        Self {
-            conn,
-            session_id: None,
-            header_uni: Default::default(),
-            header_bi: Default::default(),
-            header_datagram: Default::default(),
-            accept: None,
-            settings: None,
-            connect: None,
-        }
-    }
-}
 
 // Type aliases just so clippy doesn't complain about the complexity.
 type AcceptUni = dyn Stream<Item = Result<quinn::RecvStream, quinn::ConnectionError>> + Send;

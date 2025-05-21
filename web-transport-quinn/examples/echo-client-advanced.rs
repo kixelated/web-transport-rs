@@ -45,7 +45,7 @@ async fn main() -> anyhow::Result<()> {
     .with_protocol_versions(&[&rustls::version::TLS13])?
     .with_root_certificates(roots)
     .with_no_client_auth();
-    config.alpn_protocols = vec![web_transport_quinn::ALPN.to_vec()]; // this one is important
+    config.alpn_protocols = vec![web_transport_quinn::ALPN.as_bytes().to_vec()]; // this one is important
 
     let config: quinn::crypto::rustls::QuicClientConfig = config.try_into()?;
     let config = quinn::ClientConfig::new(Arc::new(config));

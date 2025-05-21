@@ -53,7 +53,7 @@ pub struct Client {
 }
 
 impl Client {
-    pub async fn connect(&self, url: &Url) -> Result<Session, Error> {
+    pub async fn connect(&self, url: Url) -> Result<Session, Error> {
         Ok(self.inner.connect(url).await?.into())
     }
 }
@@ -97,6 +97,11 @@ impl Session {
 
     pub async fn recv_datagram(&mut self) -> Result<Bytes, Error> {
         self.0.recv_datagram().await
+    }
+
+    /// Return the URL used to create the session.
+    pub fn url(&self) -> &Url {
+        self.0.url()
     }
 }
 
