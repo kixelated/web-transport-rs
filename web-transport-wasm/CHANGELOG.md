@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.7](https://github.com/kixelated/web-transport-rs/compare/web-transport-wasm-v0.4.6...web-transport-wasm-v0.4.7) - 2025-05-21
+
+### Other
+
+- Add a required `url` to Session ([#75](https://github.com/kixelated/web-transport-rs/pull/75))
+
 ## [0.4.6](https://github.com/kixelated/web-transport-rs/compare/web-transport-wasm-v0.4.5...web-transport-wasm-v0.4.6) - 2025-05-15
 
 ### Other
