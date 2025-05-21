@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.1](https://github.com/kixelated/web-transport-rs/compare/web-transport-v0.9.0...web-transport-v0.9.1) - 2025-05-21
+
+### Other
+
+- Again. ([#78](https://github.com/kixelated/web-transport-rs/pull/78))
+
 ## [0.8.3](https://github.com/kixelated/web-transport-rs/compare/web-transport-v0.8.2...web-transport-v0.8.3) - 2025-05-21
 
 ### Other
