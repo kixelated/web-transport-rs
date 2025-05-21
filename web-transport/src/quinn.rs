@@ -53,7 +53,7 @@ pub struct Client {
 
 impl Client {
     /// Connect to the server.
-    pub async fn connect(&self, url: &Url) -> Result<Session, Error> {
+    pub async fn connect(&self, url: Url) -> Result<Session, Error> {
         Ok(self.inner.connect(url).await?.into())
     }
 }

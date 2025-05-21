@@ -95,12 +95,12 @@ impl Connect {
         Ok(())
     }
 
-    pub async fn open(conn: &quinn::Connection, url: &Url) -> Result<Self, ConnectError> {
+    pub async fn open(conn: &quinn::Connection, url: Url) -> Result<Self, ConnectError> {
         // Create a new stream that will be used to send the CONNECT frame.
         let (mut send, mut recv) = conn.open_bi().await?;
 
         // Create a new CONNECT request that we'll send using HTTP/3
-        let request = ConnectRequest { url: url.clone() };
+        let request = ConnectRequest { url };
 
         log::debug!("sending CONNECT request: {:?}", request);
 

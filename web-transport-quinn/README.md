@@ -42,7 +42,7 @@ See the [examples](examples) or [moq-native](https://github.com/kixelated/moq-rs
     endpoint.set_default_client_config(/* ... */);
 
     // Connect to the given URL.
-    let session = web_transport_quinn::connect(&client, &"https://localhost").await?;
+    let session = web_transport_quinn::connect(&client, Url::parse("https://localhost")?).await?;
 
     // Create a bidirectional stream.
     let (mut send, mut recv) = session.open_bi().await?;

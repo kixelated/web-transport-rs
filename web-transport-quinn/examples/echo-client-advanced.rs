@@ -55,7 +55,7 @@ async fn main() -> anyhow::Result<()> {
 
     // Connect to the given URL.
     log::info!("connecting to {}", args.url);
-    let session = client.connect(&args.url).await?;
+    let session = client.connect(args.url).await?;
 
     log::info!("connected");
 
