@@ -11,6 +11,9 @@ edition = "2021"
 keywords = ["quic", "http3", "webtransport"]
 categories = ["network-programming", "web-programming"]
 
+[package.metadata.docs.rs]
+rustdoc-args = ["--cfg=web_sys_unstable_apis"]
+
 [dependencies]
 bytes = "1"
 js-sys = "0.3.76"
@@ -19,9 +22,6 @@ url = "2"
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"
 web-streams = "0.1.2"
-
-[package.metadata.docs.rs]
-rustdoc-args = ["--cfg=web_sys_unstable_apis"]
 
 [dependencies.web-sys]
 version = "0.3.76"
