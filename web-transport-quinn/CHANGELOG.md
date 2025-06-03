@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.2](https://github.com/kixelated/web-transport-rs/compare/web-transport-quinn-v0.7.1...web-transport-quinn-v0.7.2) - 2025-06-02
+
+### Fixed
+
+- fix connecting to ipv6 using quinn backend ([#82](https://github.com/kixelated/web-transport-rs/pull/82))
+
 ## [0.7.1](https://github.com/kixelated/web-transport-rs/compare/web-transport-quinn-v0.7.0...web-transport-quinn-v0.7.1) - 2025-05-21
 
 ### Other
