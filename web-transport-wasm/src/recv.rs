@@ -1,7 +1,6 @@
-use std::cmp;
-
 use bytes::{BufMut, Bytes, BytesMut};
 use js_sys::Uint8Array;
+use std::cmp;
 use web_sys::WebTransportReceiveStream;
 
 use crate::Error;
@@ -91,5 +90,32 @@ impl RecvStream {
 impl Drop for RecvStream {
     fn drop(&mut self) {
         self.reader.abort("dropped");
+    }
+}
+
+#[cfg(feature = "tokio")]
+mod tokio_impl {
+    use super::*;
+    use std::pin::Pin;
+    use std::task::{Context, Poll};
+    use tokio::io::{AsyncRead, ReadBuf};
+    use Poll::Ready;
+    impl AsyncRead for RecvStream {
+        fn poll_read(
+            mut self: Pin<&mut Self>,
+            cx: &mut Context<'_>,
+            buf: &mut ReadBuf<'_>,
+        ) -> Poll<std::io::Result<()>> {
+            // Serve from buffer if available
+            if !self.buffer.is_empty() {
+                let to_copy = std::cmp::min(buf.remaining(), self.buffer.len());
+                let data = self.buffer.split_to(to_copy);
+                buf.put_slice(&data);
+                return Ready(Ok(()));
+            }
+
+            //we can just skip this extra buffer as AsyncRead of webstreams already handles this
+            Pin::new(&mut self.reader).poll_read(cx, buf)
+        }
     }
 }

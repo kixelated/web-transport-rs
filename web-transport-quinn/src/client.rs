@@ -1,4 +1,4 @@
-use std::net::{IpAddr, SocketAddr, SocketAddrV6};
+use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
 
 use tokio::net::lookup_host;

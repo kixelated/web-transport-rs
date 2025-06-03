@@ -5,20 +5,33 @@ authors = ["Luke Curley"]
 repository = "https://github.com/kixelated/web-transport-rs"
 license = "MIT OR Apache-2.0"
 
-version = "0.9.3"
+version = "0.9.5"
 edition = "2021"
 
 keywords = ["quic", "http3", "webtransport"]
 categories = ["network-programming", "web-programming"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+
 [dependencies]
 bytes = "1"
 thiserror = "2"
 url = "2"
+tokio = { version = "1.45.1", features = ["io-util"], optional = true }
+
+
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-web-transport-wasm = { version = "0.5.0", path = "../web-transport-wasm" }
+web-transport-wasm = { version = "0.5.2", path = "../web-transport-wasm" , features = ["tokio"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 web-transport-quinn = { version = "0.7.2", path = "../web-transport-quinn" }
+
+
+[features]
+[target.'cfg(target_arch = "wasm32")'.features]
+tokio = ["dep:tokio", "web-transport-wasm/tokio"]
+
+
+[target.'cfg(not(target_arch = "wasm32"))'.features]
+tokio = ["dep:tokio"]
