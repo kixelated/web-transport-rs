@@ -4,9 +4,9 @@ use std::sync::Arc;
 use tokio::net::lookup_host;
 use url::{Host, Url};
 
-use crate::{ClientError, Provider, Session, ALPN};
 use quinn::{crypto::rustls::QuicClientConfig, rustls};
 use rustls::{client::danger::ServerCertVerifier, pki_types::CertificateDer};
+use crate::{ClientError, Provider, Session, ALPN};
 
 // Copies the Web options, hiding the actual implementation.
 /// Allows specifying a class of congestion control algorithm.
@@ -185,12 +185,9 @@ impl Client {
     /// Connect to the server.
     pub async fn connect(&self, url: Url) -> Result<Session, ClientError> {
         let port = url.port().unwrap_or(443);
-
+        
         // TODO error on username:password in host
-        let (host, remote) = match url
-            .host()
-            .ok_or_else(|| ClientError::InvalidDnsName("".to_string()))?
-        {
+        let (host, remote) = match url.host().ok_or_else(|| ClientError::InvalidDnsName("".to_string()))? {
             Host::Domain(domain) => {
                 let domain = domain.to_string();
                 // Look up the DNS entry.
@@ -204,7 +201,7 @@ impl Client {
                     Some(remote) => remote,
                     None => return Err(ClientError::InvalidDnsName(domain)),
                 };
-
+                
                 (domain, remote)
             }
             Host::Ipv4(ipv4) => (ipv4.to_string(), SocketAddr::new(IpAddr::V4(ipv4), port)),
