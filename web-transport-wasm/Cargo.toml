@@ -18,7 +18,7 @@ thiserror = "2"
 url = "2"
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"
-web-streams = { version = "0.1.3", path = "../../web-rs-tokio-feature/web-streams" }
+web-streams = { version = "0.1.2" }
 tokio = { version = "1.45.1", features = ["io-util"], optional = true }
 
 [features]
