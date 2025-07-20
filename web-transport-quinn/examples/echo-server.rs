@@ -59,7 +59,7 @@ async fn main() -> anyhow::Result<()> {
         tokio::spawn(async move {
             let err = run_conn(conn).await;
             if let Err(err) = err {
-                log::error!("connection failed: {}", err)
+                log::error!("connection failed: {err}")
             }
         });
     }
@@ -78,7 +78,7 @@ async fn run_conn(request: web_transport_quinn::Request) -> anyhow::Result<()> {
 
     // Run the session
     if let Err(err) = run_session(session).await {
-        log::info!("closing session: {}", err);
+        log::info!("closing session: {err}");
     }
 
     Ok(())

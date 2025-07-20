@@ -46,12 +46,12 @@ test:
 
 # Automatically fix some issues.
 fix:
-	cargo fix --allow-staged --all-targets --all-features
-	cargo clippy --fix --allow-staged --all-targets --all-features
+	cargo fix --allow-staged --allow-dirty --all-targets --all-features
+	cargo clippy --fix --allow-staged --allow-dirty --all-targets --all-features
 
 	# Do the same but explicitly use the WASM target.
-	cargo fix --allow-staged --all-targets --all-features --target wasm32-unknown-unknown -p web-transport
-	cargo clippy --fix --allow-staged --all-targets --all-features --target wasm32-unknown-unknown -p web-transport
+	cargo fix --allow-staged --allow-dirty --all-targets --all-features --target wasm32-unknown-unknown -p web-transport
+	cargo clippy --fix --allow-staged --allow-dirty --all-targets --all-features --target wasm32-unknown-unknown -p web-transport
 
 	# requires: cargo install cargo-shear
 	cargo shear --fix

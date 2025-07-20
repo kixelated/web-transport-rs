@@ -70,7 +70,7 @@ impl Connect {
                 Err(e) => return Err(e.into()),
             };
 
-            log::debug!("received CONNECT request: {:?}", request);
+            log::debug!("received CONNECT request: {request:?}");
 
             // The request was successfully decoded, so we can send a response.
             return Ok(Self {
@@ -85,7 +85,7 @@ impl Connect {
     pub async fn respond(&mut self, status: http::StatusCode) -> Result<(), quinn::WriteError> {
         let resp = ConnectResponse { status };
 
-        log::debug!("sending CONNECT response: {:?}", resp);
+        log::debug!("sending CONNECT response: {resp:?}");
 
         let mut buf = Vec::new();
         resp.encode(&mut buf);
@@ -102,7 +102,7 @@ impl Connect {
         // Create a new CONNECT request that we'll send using HTTP/3
         let request = ConnectRequest { url };
 
-        log::debug!("sending CONNECT request: {:?}", request);
+        log::debug!("sending CONNECT request: {request:?}");
 
         // Encode our connect request into a buffer and write it to the stream.
         let mut buf = Vec::new();
@@ -137,7 +137,7 @@ impl Connect {
                 Err(e) => return Err(e.into()),
             };
 
-            log::debug!("received CONNECT response: {:?}", res);
+            log::debug!("received CONNECT response: {res:?}");
 
             // Throw an error if we didn't get a 200 OK.
             if res.status != http::StatusCode::OK {
