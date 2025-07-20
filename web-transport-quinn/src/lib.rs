@@ -52,3 +52,6 @@ pub const ALPN: &str = "h3";
 
 /// Re-export the underlying QUIC implementation.
 pub use quinn;
+
+/// Re-export the http crate because it's in the public API.
+pub use http;
