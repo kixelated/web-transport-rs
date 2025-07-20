@@ -77,6 +77,8 @@ impl From<quinn::Server> for Server {
 impl Server {
     /// Accept an incoming connection.
     pub async fn accept(&mut self) -> Result<Option<Session>, Error> {
+        //todo why the heck does this have return type Result while Quinn is Option?
+        //oh is it because we autoaccept the session?
         match self.inner.accept().await {
             Some(session) => Ok(Some(
                 session
@@ -250,7 +252,7 @@ pub struct RecvStream {
 }
 
 impl RecvStream {
-    fn new(inner: quinn::RecvStream) -> Self {
+    pub fn new(inner: quinn::RecvStream) -> Self {
         Self { inner }
     }
 
@@ -337,3 +339,35 @@ impl From<quinn::ReadError> for Error {
         }
     }
 }
+
+#[cfg(feature = "tokio")]
+pub mod tokio_impl {
+    use super::*;
+    use std::pin::Pin;
+    use std::task::{Context, Poll};
+    use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
+    impl AsyncRead for RecvStream {
+        fn poll_read(
+            mut self: Pin<&mut Self>,
+            cx: &mut Context<'_>,
+            buf: &mut ReadBuf<'_>,
+        ) -> Poll<std::io::Result<()>> {
+            Pin::new(&mut self.inner).poll_read(cx, buf)
+        }
+    }
+
+    impl AsyncWrite for SendStream {
+        fn poll_write(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<Result<usize, std::io::Error>> {
+            Pin::new(&mut self.inner).poll_write(cx, buf)
+        }
+
+        fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), std::io::Error>> {
+            Pin::new(&mut self.inner).poll_flush(cx)
+        }
+
+        fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), std::io::Error>> {
+            Pin::new(&mut self.inner).poll_shutdown(cx)
+        }
+    }
+}
+
