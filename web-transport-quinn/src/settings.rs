@@ -63,7 +63,7 @@ impl Settings {
                 Err(e) => return Err(e.into()),
             };
 
-            log::debug!("received SETTINGS frame: {:?}", settings);
+            log::debug!("received SETTINGS frame: {settings:?}");
 
             if settings.supports_webtransport() == 0 {
                 return Err(SettingsError::WebTransportUnsupported);
@@ -77,7 +77,7 @@ impl Settings {
         let mut settings = web_transport_proto::Settings::default();
         settings.enable_webtransport(1);
 
-        log::debug!("sending SETTINGS frame: {:?}", settings);
+        log::debug!("sending SETTINGS frame: {settings:?}");
 
         let mut buf = Vec::new();
         settings.encode(&mut buf);

@@ -92,7 +92,7 @@ impl ConnectRequest {
             return Err(ConnectError::WrongProtocol(protocol.map(|s| s.to_string())));
         }
 
-        let url = Url::parse(&format!("{}://{}{}", scheme, authority, path_and_query))?;
+        let url = Url::parse(&format!("{scheme}://{authority}{path_and_query}"))?;
 
         Ok(Self { url })
     }

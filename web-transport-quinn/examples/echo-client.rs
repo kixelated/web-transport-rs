@@ -51,7 +51,7 @@ async fn main() -> anyhow::Result<()> {
     // Send a message.
     let msg = "hello world".to_string();
     send.write_all(msg.as_bytes()).await?;
-    log::info!("sent: {}", msg);
+    log::info!("sent: {msg}");
 
     // Shut down the send stream.
     send.finish()?;
