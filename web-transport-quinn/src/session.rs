@@ -14,8 +14,7 @@ use tokio::io::AsyncReadExt;
 use url::Url;
 
 use crate::{
-    ClientError, Connect, RecvStream, SendStream, SessionError, Settings,
-    WebTransportError,
+    ClientError, Connect, RecvStream, SendStream, SessionError, Settings, WebTransportError,
 };
 
 use web_transport_proto::{Frame, StreamUni, VarInt};
@@ -121,7 +120,7 @@ impl Session {
                 },
                 Err(web_transport_proto::CapsuleError::UnexpectedEnd) => continue, // More data needed.
                 Err(err) => {
-                    log::warn!("control stream capsule error: {:?}", err);
+                    log::warn!("control stream capsule error: {err:?}");
                     return (1, "capsule error".to_string());
                 }
             };
@@ -423,7 +422,7 @@ impl SessionAccept {
                 }
                 _ => {
                     // ignore unknown streams
-                    log::debug!("ignoring unknown unidirectional stream: {:?}", typ);
+                    log::debug!("ignoring unknown unidirectional stream: {typ:?}");
                 }
             }
         }
@@ -490,7 +489,7 @@ impl SessionAccept {
     ) -> Result<Option<(quinn::SendStream, quinn::RecvStream)>, SessionError> {
         let typ = Self::read_varint(&mut recv).await?;
         if Frame(typ) != Frame::WEBTRANSPORT {
-            log::debug!("ignoring unknown bidirectional stream: {:?}", typ);
+            log::debug!("ignoring unknown bidirectional stream: {typ:?}");
             return Ok(None);
         }
 
