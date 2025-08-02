@@ -10,10 +10,12 @@ use std::{
 
 use bytes::{Bytes, BytesMut};
 use futures::stream::{FuturesUnordered, Stream, StreamExt};
+use tokio::io::AsyncReadExt;
 use url::Url;
 
 use crate::{
-    ClientError, Connect, RecvStream, SendStream, SessionError, Settings, WebTransportError,
+    ClientError, Connect, RecvStream, SendStream, SessionError, Settings,
+    WebTransportError,
 };
 
 use web_transport_proto::{Frame, StreamUni, VarInt};
@@ -45,8 +47,6 @@ pub struct Session {
     // Keep a reference to the settings and connect stream to avoid closing them until dropped.
     #[allow(dead_code)]
     settings: Option<Arc<Settings>>,
-    #[allow(dead_code)]
-    connect: Option<Arc<Connect>>,
 
     // The URL used to create the session.
     url: Url,
@@ -72,7 +72,7 @@ impl Session {
         // Accept logic is stateful, so use an Arc<Mutex> to share it.
         let accept = SessionAccept::new(conn.clone(), session_id);
 
-        Self {
+        let this = Self {
             conn,
             accept: Some(Arc::new(Mutex::new(accept))),
             session_id: Some(session_id),
@@ -81,7 +81,52 @@ impl Session {
             header_datagram,
             url: connect.url().clone(),
             settings: Some(Arc::new(settings)),
-            connect: Some(Arc::new(connect)),
+        };
+
+        // Run a background task to check if the connect stream is closed.
+        let mut this2 = this.clone();
+        tokio::spawn(async move {
+            let (code, reason) = this2.run_closed(connect).await;
+            this2.close(code, reason.as_bytes());
+        });
+
+        this
+    }
+
+    // Keep reading from the control stream until it's closed.
+    async fn run_closed(&mut self, connect: Connect) -> (u32, String) {
+        let (_send, mut recv) = connect.into_inner();
+
+        let mut buf = Vec::new();
+
+        loop {
+            // Keep reading from the stream until we get a closed capsule.
+            match recv.read_buf(&mut buf).await {
+                Ok(0) => return (0, "".to_string()),
+                Ok(_) => {}
+                // std::io::Error is pretty useless
+                Err(_err) => return (1, "read error".to_string()),
+            };
+
+            let mut cursor = Cursor::new(&buf);
+
+            match web_transport_proto::Capsule::decode(&mut cursor) {
+                Ok(capsule) => match capsule {
+                    web_transport_proto::Capsule::CloseWebTransportSession { code, reason } => {
+                        return (code, reason)
+                    }
+                    web_transport_proto::Capsule::Unknown { typ, payload } => {
+                        log::warn!("unknown capsule: type={typ} size={}", payload.len());
+                    }
+                },
+                Err(web_transport_proto::CapsuleError::UnexpectedEnd) => continue, // More data needed.
+                Err(err) => {
+                    log::warn!("control stream capsule error: {:?}", err);
+                    return (1, "capsule error".to_string());
+                }
+            };
+
+            buf.drain(..cursor.position() as usize);
         }
     }
 
@@ -259,7 +304,6 @@ impl Session {
             header_datagram: Default::default(),
             accept: None,
             settings: None,
-            connect: None,
             url,
         }
     }

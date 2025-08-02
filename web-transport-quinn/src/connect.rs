@@ -164,4 +164,8 @@ impl Connect {
     pub fn url(&self) -> &Url {
         &self.request.url
     }
+
+    pub(super) fn into_inner(self) -> (quinn::SendStream, quinn::RecvStream) {
+        (self.send, self.recv)
+    }
 }

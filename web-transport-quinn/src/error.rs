@@ -52,6 +52,9 @@ pub enum SessionError {
 /// An error that can occur when reading/writing the WebTransport stream header.
 #[derive(Clone, Error, Debug)]
 pub enum WebTransportError {
+    #[error("closed: code={0} reason={1}")]
+    Closed(u32, String),
+
     #[error("unknown session")]
     UnknownSession,
 
