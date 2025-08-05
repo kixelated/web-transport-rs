@@ -1,4 +1,18 @@
 # Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+## [0.9.5](https://github.com/kixelated/web-transport-rs/compare/web-transport-v0.9.4...web-transport-v0.9.5) - 2025-08-05
+
+### Other
+
+- updated the following local packages: web-transport-quinn
+# Changelog
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
