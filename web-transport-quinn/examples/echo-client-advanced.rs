@@ -13,7 +13,7 @@ struct Args {
 
     /// Accept the certificates at this path, encoded as PEM.
     #[arg(long)]
-    pub tls_cert: path::PathBuf,
+    tls_cert: path::PathBuf,
 }
 
 #[tokio::main]

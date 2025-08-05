@@ -13,7 +13,11 @@ struct Args {
 
     /// Accept the certificates at this path, encoded as PEM.
     #[arg(long)]
-    pub tls_cert: path::PathBuf,
+    tls_cert: Option<path::PathBuf>,
+
+    /// Dangerous: Disable TLS certificate verification.
+    #[arg(long, default_value = "false")]
+    tls_disable_verify: bool,
 }
 
 #[tokio::main]
@@ -24,17 +28,31 @@ async fn main() -> anyhow::Result<()> {
 
     let args = Args::parse();
 
-    // Read the PEM certificate chain
-    let chain = fs::File::open(args.tls_cert).context("failed to open cert file")?;
-    let mut chain = io::BufReader::new(chain);
+    let client = web_transport_quinn::ClientBuilder::new();
 
-    let chain: Vec<CertificateDer> = rustls_pemfile::certs(&mut chain)
-        .collect::<Result<_, _>>()
-        .context("failed to load certs")?;
+    let client = if args.tls_disable_verify {
+        log::warn!("disabling TLS certificate verification; a MITM attack is possible");
 
-    anyhow::ensure!(!chain.is_empty(), "could not find certificate");
+        // Accept any certificate.
+        unsafe { client.with_no_certificate_verification()? }
+    } else if let Some(path) = &args.tls_cert {
+        // Read the PEM certificate chain
+        let chain = fs::File::open(path).context("failed to open cert file")?;
+        let mut chain = io::BufReader::new(chain);
 
-    let client = web_transport_quinn::ClientBuilder::new().with_server_certificates(chain)?;
+        let chain: Vec<CertificateDer> = rustls_pemfile::certs(&mut chain)
+            .collect::<Result<_, _>>()
+            .context("failed to load certs")?;
+
+        anyhow::ensure!(!chain.is_empty(), "could not find certificate");
+
+        // Only accept these certificates.
+        // Also available: with_server_certificate_hashes
+        client.with_server_certificates(chain)?
+    } else {
+        // Accept any certificate that matches a system root.
+        client.with_system_roots()?
+    };
 
     log::info!("connecting to {}", args.url);
 
