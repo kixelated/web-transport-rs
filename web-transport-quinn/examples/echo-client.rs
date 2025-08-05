@@ -13,11 +13,11 @@ struct Args {
 
     /// Accept the certificates at this path, encoded as PEM.
     #[arg(long)]
-    cert_file: Option<path::PathBuf>,
+    tls_cert: Option<path::PathBuf>,
 
     /// Dangerous: Disable TLS certificate verification.
     #[arg(long, default_value = "false")]
-    disable_verify: bool,
+    tls_disable_verify: bool,
 }
 
 #[tokio::main]
@@ -30,12 +30,12 @@ async fn main() -> anyhow::Result<()> {
 
     let client = web_transport_quinn::ClientBuilder::new();
 
-    let client = if args.disable_verify {
-        log::warn!("disabling TLS certificate verification");
+    let client = if args.tls_disable_verify {
+        log::warn!("disabling TLS certificate verification; a MITM attack is possible");
 
         // Accept any certificate.
         unsafe { client.with_no_certificate_verification()? }
-    } else if let Some(path) = &args.cert_file {
+    } else if let Some(path) = &args.tls_cert {
         // Read the PEM certificate chain
         let chain = fs::File::open(path).context("failed to open cert file")?;
         let mut chain = io::BufReader::new(chain);

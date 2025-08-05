@@ -13,7 +13,7 @@ struct Args {
 
     /// Accept the certificates at this path, encoded as PEM.
     #[arg(long)]
-    cert_file: path::PathBuf,
+    tls_cert: path::PathBuf,
 }
 
 #[tokio::main]
@@ -25,7 +25,7 @@ async fn main() -> anyhow::Result<()> {
     let args = Args::parse();
 
     // Read the PEM certificate chain
-    let chain = fs::File::open(args.cert_file).context("failed to open cert file")?;
+    let chain = fs::File::open(args.tls_cert).context("failed to open cert file")?;
     let mut chain = io::BufReader::new(chain);
 
     let chain: Vec<CertificateDer> = rustls_pemfile::certs(&mut chain)
