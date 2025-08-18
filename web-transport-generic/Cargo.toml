@@ -1,0 +1,15 @@
+[package]
+name = "web-transport-generic"
+description = "Generic WebTransport trait"
+authors = ["Luke Curley"]
+repository = "https://github.com/kixelated/web-transport-rs"
+license = "MIT OR Apache-2.0"
+
+version = "0.1.0"
+edition = "2021"
+
+keywords = ["quic", "http3", "webtransport"]
+categories = ["network-programming", "web-programming"]
+
+[dependencies]
+bytes = "1"

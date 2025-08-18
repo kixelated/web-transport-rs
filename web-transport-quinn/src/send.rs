@@ -4,7 +4,7 @@ use std::{
     task::{Context, Poll},
 };
 
-use bytes::Bytes;
+use bytes::{Buf, Bytes};
 
 use crate::{ClosedStream, SessionError, WriteError};
 
@@ -103,5 +103,35 @@ impl tokio::io::AsyncWrite for SendStream {
 
     fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<io::Result<()>> {
         Pin::new(&mut self.stream).poll_shutdown(cx)
+    }
+}
+
+impl web_transport_generic::SendStream for SendStream {
+    type Error = WriteError;
+
+    fn set_priority(&mut self, order: i32) {
+        Self::set_priority(self, order).ok();
+    }
+
+    fn reset(&mut self, code: u32) {
+        Self::reset(self, code).ok();
+    }
+
+    fn finish(&mut self) -> Result<(), Self::Error> {
+        Self::finish(self).map_err(|_| WriteError::ClosedStream)
+    }
+
+    async fn write(&mut self, buf: &[u8]) -> Result<usize, Self::Error> {
+        Self::write(self, buf).await
+    }
+
+    async fn write_buf<B: Buf + Send>(&mut self, buf: &mut B) -> Result<usize, Self::Error> {
+        let size = self.write(buf.chunk()).await?;
+        buf.advance(size);
+        Ok(size)
+    }
+
+    async fn closed(&mut self) -> Result<Option<u32>, Self::Error> {
+        self.stopped().await.map_err(Into::into)
     }
 }

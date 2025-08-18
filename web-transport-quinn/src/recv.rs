@@ -4,7 +4,7 @@ use std::{
     task::{Context, Poll},
 };
 
-use bytes::Bytes;
+use bytes::{BufMut, Bytes};
 
 use crate::{ReadError, ReadExactError, ReadToEndError, SessionError};
 
@@ -85,5 +85,40 @@ impl tokio::io::AsyncRead for RecvStream {
         buf: &mut tokio::io::ReadBuf,
     ) -> Poll<io::Result<()>> {
         Pin::new(&mut self.inner).poll_read(cx, buf)
+    }
+}
+
+impl web_transport_generic::RecvStream for RecvStream {
+    type Error = ReadError;
+
+    fn stop(&mut self, code: u32) {
+        Self::stop(self, code).ok();
+    }
+
+    async fn read(&mut self) -> Result<Option<Bytes>, Self::Error> {
+        self.read_chunk(1024, true)
+            .await
+            .map(|r| r.map(|chunk| chunk.bytes))
+    }
+
+    async fn read_buf<B: BufMut + Send>(
+        &mut self,
+        buf: &mut B,
+    ) -> Result<Option<usize>, Self::Error> {
+        let dst = buf.chunk_mut();
+        let dst = unsafe { &mut *(dst as *mut _ as *mut [u8]) };
+
+        let size = match self.read(dst).await? {
+            Some(size) => size,
+            None => return Ok(None),
+        };
+
+        unsafe { buf.advance_mut(size) };
+
+        Ok(Some(size))
+    }
+
+    async fn closed(&mut self) -> Result<Option<u32>, Self::Error> {
+        self.received_reset().await.map_err(Into::into)
     }
 }

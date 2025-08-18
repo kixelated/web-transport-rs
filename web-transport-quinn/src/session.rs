@@ -532,3 +532,45 @@ impl SessionAccept {
         Ok(v)
     }
 }
+
+impl web_transport_generic::Session for Session {
+    type SendStream = SendStream;
+    type RecvStream = RecvStream;
+    type Error = SessionError;
+
+    async fn accept_uni(&mut self) -> Result<Self::RecvStream, Self::Error> {
+        Self::accept_uni(self).await
+    }
+
+    async fn accept_bi(&mut self) -> Result<(Self::SendStream, Self::RecvStream), Self::Error> {
+        Self::accept_bi(self).await
+    }
+
+    async fn open_bi(&mut self) -> Result<(Self::SendStream, Self::RecvStream), Self::Error> {
+        Self::open_bi(self).await
+    }
+
+    async fn open_uni(&mut self) -> Result<Self::SendStream, Self::Error> {
+        Self::open_uni(self).await
+    }
+
+    fn close(&mut self, code: u32, reason: &str) {
+        Self::close(self, code, reason.as_bytes());
+    }
+
+    async fn closed(&self) -> Self::Error {
+        Self::closed(self).await
+    }
+
+    fn send_datagram(&mut self, data: Bytes) -> Result<(), Self::Error> {
+        Self::send_datagram(self, data)
+    }
+
+    async fn recv_datagram(&mut self) -> Result<Bytes, Self::Error> {
+        Self::read_datagram(self).await
+    }
+
+    async fn max_datagram_size(&self) -> usize {
+        Self::max_datagram_size(self)
+    }
+}
