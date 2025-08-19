@@ -1,6 +1,6 @@
 use std::future::Future;
 
-use bytes::{Buf, BufMut, Bytes};
+use bytes::{Buf, BufMut, Bytes, BytesMut};
 
 /// Error trait for WebTransport operations.
 ///
@@ -14,29 +14,26 @@ pub trait Error: std::error::Error + Send + Sync + 'static {
 ///
 /// The session can be cloned to create multiple handles.
 /// The session will be closed on drop.
-///
-/// This trait requires Clone + Send + Sync + 'static because implementations
-/// typically need an inner Arc<T> for sharing across async tasks.
 pub trait Session: Clone + Send + Sync + 'static {
     type SendStream: SendStream;
     type RecvStream: RecvStream;
     type Error: Error;
 
     /// Block until the peer creates a new unidirectional stream.
-    fn accept_uni(&mut self) -> impl Future<Output = Result<Self::RecvStream, Self::Error>> + Send;
+    fn accept_uni(&self) -> impl Future<Output = Result<Self::RecvStream, Self::Error>> + Send;
 
     /// Block until the peer creates a new bidirectional stream.
     fn accept_bi(
-        &mut self,
+        &self,
     ) -> impl Future<Output = Result<(Self::SendStream, Self::RecvStream), Self::Error>> + Send;
 
     /// Open a new bidirectional stream, which may block when there are too many concurrent streams.
     fn open_bi(
-        &mut self,
+        &self,
     ) -> impl Future<Output = Result<(Self::SendStream, Self::RecvStream), Self::Error>> + Send;
 
     /// Open a new unidirectional stream, which may block when there are too many concurrent streams.
-    fn open_uni(&mut self) -> impl Future<Output = Result<Self::SendStream, Self::Error>> + Send;
+    fn open_uni(&self) -> impl Future<Output = Result<Self::SendStream, Self::Error>> + Send;
 
     /// Send a datagram over the network.
     ///
@@ -47,16 +44,16 @@ pub trait Session: Clone + Send + Sync + 'static {
     /// - Peer is not receiving datagrams.
     /// - Peer has too many outstanding datagrams.
     /// - ???
-    fn send_datagram(&mut self, payload: Bytes) -> Result<(), Self::Error>;
+    fn send_datagram(&self, payload: Bytes) -> Result<(), Self::Error>;
 
     /// Receive a datagram over the network.
-    fn recv_datagram(&mut self) -> impl Future<Output = Result<Bytes, Self::Error>> + Send;
+    fn recv_datagram(&self) -> impl Future<Output = Result<Bytes, Self::Error>> + Send;
 
     /// The maximum size of a datagram that can be sent.
     fn max_datagram_size(&self) -> usize;
 
     /// Close the connection immediately with a code and reason.
-    fn close(&mut self, code: u32, reason: &str);
+    fn close(&self, code: u32, reason: &str);
 
     /// Block until the connection is closed.
     fn closed(&self) -> impl Future<Output = Self::Error> + Send;
@@ -73,8 +70,6 @@ pub trait SendStream: Send {
     fn write(&mut self, buf: &[u8]) -> impl Future<Output = Result<usize, Self::Error>> + Send;
 
     /// Write the given buffer to the stream, advancing the internal position.
-    ///
-    /// This may be polled to perform partial writes.
     fn write_buf<B: Buf + Send>(
         &mut self,
         buf: &mut B,
@@ -95,6 +90,31 @@ pub trait SendStream: Send {
     ///
     // TODO: This should be &self but that requires modifying quinn.
     fn closed(&mut self) -> impl Future<Output = Result<(), Self::Error>> + Send;
+
+    /// A helper to write all the data in the buffer.
+    fn write_all(&mut self, buf: &[u8]) -> impl Future<Output = Result<(), Self::Error>> + Send {
+        async move {
+            let mut pos = 0;
+            while pos < buf.len() {
+                pos += self.write(&buf[pos..]).await?;
+            }
+            Ok(())
+        }
+    }
+
+    /// A helper to write all of the data in the buffer.
+    fn write_all_buf<B: Buf + Send>(
+        &mut self,
+        buf: &mut B,
+    ) -> impl Future<Output = Result<(), Self::Error>> + Send {
+        async move {
+            let mut pos = 0;
+            while pos < buf.remaining() {
+                pos += self.write_buf(buf).await?;
+            }
+            Ok(())
+        }
+    }
 }
 
 /// An incoming stream of bytes from the peer.
@@ -125,4 +145,30 @@ pub trait RecvStream: Send {
     ///
     /// This should be &self but that requires modifying quinn.
     fn closed(&mut self) -> impl Future<Output = Result<(), Self::Error>> + Send;
+
+    /// A helper to keep reading until the stream is closed.
+    fn read_all(&mut self) -> impl Future<Output = Result<Bytes, Self::Error>> + Send {
+        async move {
+            let mut buf = BytesMut::new();
+            self.read_all_buf(&mut buf).await?;
+            Ok(buf.freeze())
+        }
+    }
+
+    /// A helper to keep reading until the buffer is full.
+    fn read_all_buf<B: BufMut + Send>(
+        &mut self,
+        buf: &mut B,
+    ) -> impl Future<Output = Result<usize, Self::Error>> + Send {
+        async move {
+            let mut pos = 0;
+            while pos < buf.remaining_mut() {
+                match self.read_buf(buf).await? {
+                    Some(n) => pos += n,
+                    None => break,
+                }
+            }
+            Ok(pos)
+        }
+    }
 }

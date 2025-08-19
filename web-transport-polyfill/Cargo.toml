@@ -13,13 +13,14 @@ categories = ["network-programming", "web-programming"]
 
 [dependencies]
 bytes = "1"
-tokio-tungstenite = "0.24"
-thiserror = "2"
 futures = "0.3"
+thiserror = "2"
 tokio = { version = "1", features = ["sync", "time", "macros"] }
+tokio-tungstenite = "0.24"
 
 web-transport-generic = { path = "../web-transport-generic", version = "0.1" }
 web-transport-proto = { path = "../web-transport-proto", version = "0.2" }
 
 [dev-dependencies]
+anyhow = "1"
 tokio = { version = "1", features = ["full"] }

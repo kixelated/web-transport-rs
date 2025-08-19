@@ -1,8 +1,8 @@
 [workspace]
 members = [
     "web-transport",
-    "web-transport-polyfill",
     "web-transport-generic",
+    "web-transport-polyfill",
     "web-transport-proto",
     "web-transport-quinn",
     "web-transport-wasm",

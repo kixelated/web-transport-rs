@@ -9,10 +9,22 @@ use std::{
 
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 use futures::{SinkExt, StreamExt};
-use tokio::sync::mpsc;
-use tokio_tungstenite::tungstenite::Message;
+use tokio::{
+    io::{AsyncRead, AsyncWrite},
+    sync::{mpsc, watch},
+};
+use tokio_tungstenite::{
+    tungstenite::{client::IntoClientRequest, handshake::server, http, Message},
+    WebSocketStream,
+};
 use web_transport_generic as generic;
 use web_transport_proto::{VarInt, VarIntUnexpectedEnd};
+
+pub use tokio_tungstenite;
+pub use tokio_tungstenite::tungstenite;
+
+// We use this ALPN to identify our WebTransport compatibility layer.
+pub const ALPN: &str = "web-transport";
 
 #[derive(Debug, thiserror::Error, Clone)]
 pub enum Error {
@@ -58,8 +70,6 @@ impl From<tokio_tungstenite::tungstenite::Error> for Error {
 
 impl generic::Error for Error {}
 
-pub type WebSocketStream = tokio_tungstenite::WebSocketStream<tokio::net::TcpStream>;
-
 /// Emulates a WebTransport session over a WebSocket connection.
 #[derive(Clone)]
 pub struct Session {
@@ -76,17 +86,12 @@ pub struct Session {
 
     create_uni_id: Arc<AtomicU64>,
     create_bi_id: Arc<AtomicU64>,
+
+    closed: watch::Sender<Option<Error>>,
 }
 
-struct SessionState<S>
-where
-    S: StreamExt<Item = Result<Message, tokio_tungstenite::tungstenite::Error>>
-        + SinkExt<Message>
-        + Unpin
-        + Send
-        + 'static,
-{
-    ws: S,
+struct SessionState<T: AsyncRead + AsyncWrite + Unpin + Send + 'static> {
+    ws: WebSocketStream<T>,
     is_server: bool,
 
     outbound: (mpsc::Sender<Frame>, mpsc::Receiver<Frame>),
@@ -100,17 +105,14 @@ where
 
     send_streams: HashMap<StreamId, SendState>,
     recv_streams: HashMap<StreamId, RecvState>,
+
+    closed: watch::Sender<Option<Error>>,
 }
 
-impl<S> SessionState<S>
-where
-    S: StreamExt<Item = Result<Message, tokio_tungstenite::tungstenite::Error>>
-        + SinkExt<Message>
-        + Unpin
-        + Send
-        + 'static,
-{
-    async fn run(mut self) -> Result<(), Error> {
+impl<T: AsyncRead + AsyncWrite + Unpin + Send + 'static> SessionState<T> {
+    async fn run(&mut self) -> Result<(), Error> {
+        let mut closed = self.closed.subscribe();
+
         loop {
             tokio::select! {
                 biased;
@@ -142,6 +144,9 @@ where
                         Some(frame) => self.send_frame(frame).await?,
                         None => return Err(Error::Closed),
                     };
+                }
+                _ = async { closed.wait_for(|err| err.is_some()).await.ok(); } => {
+                    return Err(closed.borrow().clone().unwrap_or(Error::Closed))
                 }
             }
         }
@@ -282,14 +287,10 @@ where
 }
 
 impl Session {
-    pub fn new<S>(ws: S, is_server: bool) -> Self
-    where
-        S: StreamExt<Item = Result<Message, tokio_tungstenite::tungstenite::Error>>
-            + SinkExt<Message>
-            + Unpin
-            + Send
-            + 'static,
-    {
+    pub fn new<T: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
+        ws: WebSocketStream<T>,
+        is_server: bool,
+    ) -> Self {
         let (accept_bi_tx, accept_bi_rx) = mpsc::channel(1024);
         let (accept_uni_tx, accept_uni_rx) = mpsc::channel(1024);
 
@@ -299,7 +300,9 @@ impl Session {
         let (outbound_tx, outbound_rx) = mpsc::channel(8);
         let (outbound_priority_tx, outbound_priority_rx) = mpsc::unbounded_channel();
 
-        let backend = SessionState {
+        let closed = watch::Sender::new(None);
+
+        let mut backend = SessionState {
             ws,
             outbound: (outbound_tx.clone(), outbound_rx),
             outbound_priority: (outbound_priority_tx.clone(), outbound_priority_rx),
@@ -310,8 +313,12 @@ impl Session {
             is_server,
             send_streams: HashMap::new(),
             recv_streams: HashMap::new(),
+            closed: closed.clone(),
         };
-        tokio::spawn(backend.run());
+        tokio::spawn(async move {
+            let err = backend.run().await.err().unwrap_or(Error::Closed);
+            backend.closed.send(Some(err)).ok();
+        });
 
         Session {
             is_server,
@@ -323,7 +330,53 @@ impl Session {
             create_bi: create_bi_tx,
             create_uni_id: Default::default(),
             create_bi_id: Default::default(),
+            closed,
         }
+    }
+
+    pub async fn accept<T: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
+        socket: T,
+    ) -> Result<Session, Error> {
+        // Create callback to handle WebTransport protocol negotiation
+        let callback = |req: &server::Request,
+                        mut response: server::Response|
+         -> Result<server::Response, server::ErrorResponse> {
+            // Check for WebTransport subprotocol in Sec-WebSocket-Protocol header
+            let protocols = req
+                .headers()
+                .get(http::header::SEC_WEBSOCKET_PROTOCOL)
+                .and_then(|h| h.to_str().ok())
+                .unwrap_or_default();
+
+            if !protocols.split(',').any(|p| p.trim() == ALPN) {
+                return Err(http::Response::builder()
+                    .status(http::StatusCode::BAD_REQUEST)
+                    .body(Some("'web-transport' protocol required".to_string()))
+                    .unwrap());
+            }
+
+            // Add the selected protocol to the response
+            response.headers_mut().insert(
+                http::header::SEC_WEBSOCKET_PROTOCOL,
+                http::HeaderValue::from_str(ALPN).unwrap(),
+            );
+
+            Ok(response)
+        };
+
+        let ws = tokio_tungstenite::accept_hdr_async_with_config(socket, callback, None).await?;
+        Ok(Session::new(ws, false))
+    }
+
+    pub async fn connect(url: &str) -> Result<Session, Error> {
+        let mut request = url.into_client_request()?;
+        request.headers_mut().insert(
+            http::header::SEC_WEBSOCKET_PROTOCOL,
+            http::HeaderValue::from_str(ALPN).unwrap(),
+        );
+
+        let (ws_stream, _) = tokio_tungstenite::connect_async(request).await?;
+        Ok(Session::new(ws_stream, true))
     }
 }
 
@@ -332,7 +385,7 @@ impl generic::Session for Session {
     type RecvStream = RecvStream;
     type Error = Error;
 
-    async fn accept_uni(&mut self) -> Result<Self::RecvStream, Self::Error> {
+    async fn accept_uni(&self) -> Result<Self::RecvStream, Self::Error> {
         self.accept_uni
             .lock()
             .await
@@ -341,7 +394,7 @@ impl generic::Session for Session {
             .ok_or(Error::Closed)
     }
 
-    async fn accept_bi(&mut self) -> Result<(Self::SendStream, Self::RecvStream), Self::Error> {
+    async fn accept_bi(&self) -> Result<(Self::SendStream, Self::RecvStream), Self::Error> {
         self.accept_bi
             .lock()
             .await
@@ -350,7 +403,7 @@ impl generic::Session for Session {
             .ok_or(Error::Closed)
     }
 
-    async fn open_uni(&mut self) -> Result<Self::SendStream, Self::Error> {
+    async fn open_uni(&self) -> Result<Self::SendStream, Self::Error> {
         let id = self.create_uni_id.fetch_add(1, Ordering::Relaxed);
         let id = StreamId::new(id, Dir::Uni, self.is_server);
 
@@ -376,7 +429,7 @@ impl generic::Session for Session {
         Ok(send_frontend)
     }
 
-    async fn open_bi(&mut self) -> Result<(Self::SendStream, Self::RecvStream), Self::Error> {
+    async fn open_bi(&self) -> Result<(Self::SendStream, Self::RecvStream), Self::Error> {
         let id = self.create_bi_id.fetch_add(1, Ordering::Relaxed);
         let id = StreamId::new(id, Dir::Bi, self.is_server);
 
@@ -420,15 +473,25 @@ impl generic::Session for Session {
         Ok((send_frontend, recv_frontend))
     }
 
-    fn close(&mut self, _code: u32, _reason: &str) {
-        todo!()
+    fn close(&self, code: u32, reason: &str) {
+        self.closed
+            .send(Some(Error::ConnectionClosed {
+                code: VarInt::from(code),
+                reason: reason.to_string(),
+            }))
+            .ok();
     }
 
     async fn closed(&self) -> Self::Error {
-        todo!()
+        let mut closed = self.closed.subscribe();
+        closed
+            .wait_for(|err| err.is_some())
+            .await
+            .map(|e| e.clone().unwrap_or(Error::Closed))
+            .unwrap_or(Error::Closed)
     }
 
-    fn send_datagram(&mut self, _payload: Bytes) -> Result<(), Self::Error> {
+    fn send_datagram(&self, _payload: Bytes) -> Result<(), Self::Error> {
         todo!()
     }
 
@@ -436,7 +499,7 @@ impl generic::Session for Session {
         todo!()
     }
 
-    async fn recv_datagram(&mut self) -> Result<Bytes, Self::Error> {
+    async fn recv_datagram(&self) -> Result<Bytes, Self::Error> {
         todo!()
     }
 }
