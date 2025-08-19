@@ -49,11 +49,11 @@ pub trait Session: Clone + Send + Sync + 'static {
     /// - ???
     fn send_datagram(&mut self, payload: Bytes) -> Result<(), Self::Error>;
 
-    /// The maximum size of a datagram that can be sent.
-    fn max_datagram_size(&self) -> impl Future<Output = usize> + Send;
-
     /// Receive a datagram over the network.
     fn recv_datagram(&mut self) -> impl Future<Output = Result<Bytes, Self::Error>> + Send;
+
+    /// The maximum size of a datagram that can be sent.
+    fn max_datagram_size(&self) -> usize;
 
     /// Close the connection immediately with a code and reason.
     fn close(&mut self, code: u32, reason: &str);
@@ -88,15 +88,13 @@ pub trait SendStream: Send {
     /// Send an immediate reset code, closing the stream.
     fn reset(&mut self, code: u32);
 
-    /// Mark the stream as finished.
-    ///
-    /// This is automatically called on Drop, but can be called manually.
-    fn finish(&mut self) -> Result<(), Self::Error>;
+    /// Mark the stream as finished and wait for all data to be acknowledged.
+    fn finish(&mut self) -> impl Future<Output = Result<(), Self::Error>> + Send;
 
     /// Block until the stream is closed by either side.
     ///
     // TODO: This should be &self but that requires modifying quinn.
-    fn closed(&mut self) -> impl Future<Output = Result<Option<u32>, Self::Error>> + Send;
+    fn closed(&mut self) -> impl Future<Output = Result<(), Self::Error>> + Send;
 }
 
 /// An incoming stream of bytes from the peer.
@@ -126,5 +124,5 @@ pub trait RecvStream: Send {
     /// Block until the stream has been closed and return the error code, if any.
     ///
     /// This should be &self but that requires modifying quinn.
-    fn closed(&mut self) -> impl Future<Output = Result<Option<u32>, Self::Error>> + Send;
+    fn closed(&mut self) -> impl Future<Output = Result<(), Self::Error>> + Send;
 }

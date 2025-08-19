@@ -570,7 +570,7 @@ impl web_transport_generic::Session for Session {
         Self::read_datagram(self).await
     }
 
-    async fn max_datagram_size(&self) -> usize {
+    fn max_datagram_size(&self) -> usize {
         Self::max_datagram_size(self)
     }
 }
