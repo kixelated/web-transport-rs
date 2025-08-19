@@ -29,10 +29,20 @@ export class WebTransportSession implements WebTransport {
     // TODO: Implement datagrams
 	readonly datagrams = new Datagrams();
 
-	constructor(url: string | URL) {
+	constructor(url: string | URL, options?: WebTransportOptions) {
+        console.warn("using WebTransport polyfill over WebSocket");
+
+        if (options?.requireUnreliable) {
+            throw new Error("not allowed to use WebSocket; requireUnreliable is true");
+        }
+
+        if (options?.serverCertificateHashes) {
+            console.warn("serverCertificateHashes is not supported; trying anyway");
+        }
+
 		url = WebTransportSession.#convertToWebSocketUrl(url);
 
-		this.#ws = new WebSocket(url, ["webtransport"]);
+		this.#ws = new WebSocket(url, ["web-transport"]);
 
 		this.ready = new Promise((resolve) => {
 			this.#readyResolve = resolve;

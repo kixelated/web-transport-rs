@@ -13,10 +13,7 @@ use tokio::{
     io::{AsyncRead, AsyncWrite},
     sync::{mpsc, watch},
 };
-use tokio_tungstenite::{
-    tungstenite::{client::IntoClientRequest, handshake::server, http, Message},
-    WebSocketStream,
-};
+use tungstenite::{client::IntoClientRequest, handshake::server, http, Message};
 use web_transport_generic as generic;
 use web_transport_proto::{VarInt, VarIntUnexpectedEnd};
 
@@ -90,8 +87,8 @@ pub struct Session {
     closed: watch::Sender<Option<Error>>,
 }
 
-struct SessionState<T: AsyncRead + AsyncWrite + Unpin + Send + 'static> {
-    ws: WebSocketStream<T>,
+struct SessionState<T> {
+    ws: T,
     is_server: bool,
 
     outbound: (mpsc::Sender<Frame>, mpsc::Receiver<Frame>),
@@ -109,7 +106,12 @@ struct SessionState<T: AsyncRead + AsyncWrite + Unpin + Send + 'static> {
     closed: watch::Sender<Option<Error>>,
 }
 
-impl<T: AsyncRead + AsyncWrite + Unpin + Send + 'static> SessionState<T> {
+impl<T> SessionState<T>
+where
+    T: futures::Stream<Item = Result<Message, tungstenite::Error>>
+        + futures::Sink<Message, Error = tungstenite::Error>
+        + Unpin,
+{
     async fn run(&mut self) -> Result<(), Error> {
         let mut closed = self.closed.subscribe();
 
@@ -287,10 +289,14 @@ impl<T: AsyncRead + AsyncWrite + Unpin + Send + 'static> SessionState<T> {
 }
 
 impl Session {
-    pub fn new<T: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
-        ws: WebSocketStream<T>,
-        is_server: bool,
-    ) -> Self {
+    pub fn new<T>(ws: T, is_server: bool) -> Self
+    where
+        T: futures::Stream<Item = Result<Message, tungstenite::Error>>
+            + futures::Sink<Message, Error = tungstenite::Error>
+            + Unpin
+            + Send
+            + 'static,
+    {
         let (accept_bi_tx, accept_bi_rx) = mpsc::channel(1024);
         let (accept_uni_tx, accept_uni_rx) = mpsc::channel(1024);
 
