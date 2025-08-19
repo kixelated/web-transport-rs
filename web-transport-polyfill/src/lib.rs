@@ -7,16 +7,17 @@ use std::{
     },
 };
 
-use axum::extract::ws::{Message, WebSocket};
 use bytes::{Buf, BufMut, Bytes, BytesMut};
+use futures::{SinkExt, StreamExt};
 use tokio::sync::mpsc;
+use tokio_tungstenite::tungstenite::Message;
 use web_transport_generic as generic;
 use web_transport_proto::{VarInt, VarIntUnexpectedEnd};
 
 #[derive(Debug, thiserror::Error, Clone)]
 pub enum Error {
-    #[error("axum error: {0}")]
-    Axum(Arc<axum::Error>),
+    #[error("websocket error: {0}")]
+    WebSocket(String),
 
     #[error("invalid frame type: {0}")]
     InvalidFrameType(VarInt),
@@ -49,13 +50,15 @@ impl From<VarIntUnexpectedEnd> for Error {
     }
 }
 
-impl From<axum::Error> for Error {
-    fn from(err: axum::Error) -> Self {
-        Self::Axum(Arc::new(err))
+impl From<tokio_tungstenite::tungstenite::Error> for Error {
+    fn from(err: tokio_tungstenite::tungstenite::Error) -> Self {
+        Self::WebSocket(err.to_string())
     }
 }
 
 impl generic::Error for Error {}
+
+pub type WebSocketStream = tokio_tungstenite::WebSocketStream<tokio::net::TcpStream>;
 
 /// Emulates a WebTransport session over a WebSocket connection.
 #[derive(Clone)]
@@ -75,8 +78,15 @@ pub struct Session {
     create_bi_id: Arc<AtomicU64>,
 }
 
-struct SessionState {
-    ws: WebSocket,
+struct SessionState<S>
+where
+    S: StreamExt<Item = Result<Message, tokio_tungstenite::tungstenite::Error>>
+        + SinkExt<Message>
+        + Unpin
+        + Send
+        + 'static,
+{
+    ws: S,
     is_server: bool,
 
     outbound: (mpsc::Sender<Frame>, mpsc::Receiver<Frame>),
@@ -92,18 +102,26 @@ struct SessionState {
     recv_streams: HashMap<StreamId, RecvState>,
 }
 
-impl SessionState {
+impl<S> SessionState<S>
+where
+    S: StreamExt<Item = Result<Message, tokio_tungstenite::tungstenite::Error>>
+        + SinkExt<Message>
+        + Unpin
+        + Send
+        + 'static,
+{
     async fn run(mut self) -> Result<(), Error> {
         loop {
             tokio::select! {
                 biased;
-                message = self.ws.recv() => {
+                message = self.ws.next() => {
                     match message {
                         Some(Ok(Message::Binary(data))) => {
-                            let frame = Frame::decode(data)?;
+                            let frame = Frame::decode(data.into())?;
                             self.recv_frame(frame).await?;
                         },
-                        _ => return Err(Error::Closed),
+                        None => return Err(Error::Closed),
+                        _ => continue,
                     };
                 }
                 Some((id, send)) = self.create_uni.recv() => {
@@ -145,8 +163,10 @@ impl SessionState {
         };
 
         let data = frame.encode();
-        // TODO Can this cause a deadlock because we're not processing messages?
-        self.ws.send(Message::Binary(data)).await?;
+        self.ws
+            .send(Message::Binary(data.to_vec()))
+            .await
+            .map_err(|_| Error::Closed)?;
 
         Ok(())
     }
@@ -262,7 +282,14 @@ impl SessionState {
 }
 
 impl Session {
-    pub fn new(ws: WebSocket, is_server: bool) -> Self {
+    pub fn new<S>(ws: S, is_server: bool) -> Self
+    where
+        S: StreamExt<Item = Result<Message, tokio_tungstenite::tungstenite::Error>>
+            + SinkExt<Message>
+            + Unpin
+            + Send
+            + 'static,
+    {
         let (accept_bi_tx, accept_bi_rx) = mpsc::channel(1024);
         let (accept_uni_tx, accept_uni_rx) = mpsc::channel(1024);
 
@@ -606,6 +633,7 @@ impl generic::RecvStream for RecvStream {
                 Some(reset) = self.inbound_reset.recv() => {
                     return Err(self.recv_reset(reset.code));
                 }
+                else => return Err(Error::Closed),
             }
         }
     }
@@ -666,6 +694,9 @@ impl generic::RecvStream for RecvStream {
                     assert_eq!(stream.id, self.id);
                     self.buffer = stream.data;
                     self.fin = stream.fin;
+                }
+                else => {
+                    return Err(Error::Closed);
                 }
             }
         }

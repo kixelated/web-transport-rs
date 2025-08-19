@@ -117,8 +117,10 @@ impl web_transport_generic::SendStream for SendStream {
         Self::reset(self, code).ok();
     }
 
-    fn finish(&mut self) -> Result<(), Self::Error> {
-        Self::finish(self).map_err(|_| WriteError::ClosedStream)
+    async fn finish(&mut self) -> Result<(), Self::Error> {
+        Self::finish(self).map_err(|_| WriteError::ClosedStream)?;
+        Self::stopped(self).await?;
+        Ok(())
     }
 
     async fn write(&mut self, buf: &[u8]) -> Result<usize, Self::Error> {
@@ -131,7 +133,8 @@ impl web_transport_generic::SendStream for SendStream {
         Ok(size)
     }
 
-    async fn closed(&mut self) -> Result<Option<u32>, Self::Error> {
-        self.stopped().await.map_err(Into::into)
+    async fn closed(&mut self) -> Result<(), Self::Error> {
+        self.stopped().await?;
+        Ok(())
     }
 }

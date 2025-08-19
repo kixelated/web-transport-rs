@@ -118,7 +118,8 @@ impl web_transport_generic::RecvStream for RecvStream {
         Ok(Some(size))
     }
 
-    async fn closed(&mut self) -> Result<Option<u32>, Self::Error> {
-        self.received_reset().await.map_err(Into::into)
+    async fn closed(&mut self) -> Result<(), Self::Error> {
+        self.received_reset().await?;
+        Ok(())
     }
 }
