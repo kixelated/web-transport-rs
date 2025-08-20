@@ -23,32 +23,34 @@ export class VarInt {
 		throw new Error("VarInt value too large")
 	}
 
-	encode(): Uint8Array {
+    // Append to the provided buffer
+	encode<T extends ArrayBuffer>(dst: Uint8Array<T>): Uint8Array<T> {
 		const x = this.value
-		const buffer = new ArrayBuffer(this.size())
-		const view = new DataView(buffer)
 
-		if (x < 2n ** 6n) {
+		const size = this.size()
+        if (dst.buffer.byteLength < dst.byteLength + size) {
+            throw new Error("destination buffer too small")
+        }
+
+        const view = new DataView(dst.buffer, dst.byteOffset + dst.byteLength, size)
+
+		if (size === 1) {
 			view.setUint8(0, Number(x))
-		} else if (x < 2n ** 14n) {
+		} else if (size === 2) {
 			view.setUint16(0, (0b01 << 14) | Number(x), false)
-		} else if (x < 2n ** 30n) {
+		} else if (size === 4) {
 			view.setUint32(0, (0b10 << 30) | Number(x), false)
-		} else if (x < 2n ** 62n) {
+		} else if (size === 8) {
 			view.setBigUint64(0, (0b11n << 62n) | x, false)
 		} else {
 			throw new Error("VarInt value too large")
 		}
 
-		return new Uint8Array(buffer)
+        return new Uint8Array(dst.buffer, dst.byteOffset, dst.byteLength + size)
 	}
 
-	static decode(buffer: Uint8Array, offset = 0): { value: VarInt; bytesRead: number } {
-		if (offset >= buffer.length) {
-			throw new Error("Unexpected end of buffer")
-		}
-
-		const view = new DataView(buffer.buffer, buffer.byteOffset + offset)
+	static decode(buffer: Uint8Array): [VarInt, Uint8Array] {
+		const view = new DataView(buffer.buffer, buffer.byteOffset)
 		const firstByte = view.getUint8(0)
 		const tag = firstByte >> 6
 
@@ -61,21 +63,21 @@ export class VarInt {
 				bytesRead = 1
 				break
 			case 0b01:
-				if (offset + 2 > buffer.length) {
+				if (2 > buffer.length) {
 					throw new Error("Unexpected end of buffer")
 				}
 				value = BigInt(view.getUint16(0, false) & 0x3fff)
 				bytesRead = 2
 				break
 			case 0b10:
-				if (offset + 4 > buffer.length) {
+				if (4 > buffer.length) {
 					throw new Error("Unexpected end of buffer")
 				}
 				value = BigInt(view.getUint32(0, false) & 0x3fffffff)
 				bytesRead = 4
 				break
 			case 0b11:
-				if (offset + 8 > buffer.length) {
+				if (8 > buffer.length) {
 					throw new Error("Unexpected end of buffer")
 				}
 				value = view.getBigUint64(0, false) & 0x3fffffffffffffffn
@@ -85,6 +87,7 @@ export class VarInt {
 				throw new Error("Invalid VarInt tag")
 		}
 
-		return { value: new VarInt(value), bytesRead }
+        const remaining = new Uint8Array(buffer.buffer, buffer.byteOffset + bytesRead, buffer.byteLength - bytesRead)
+		return [ new VarInt(value), remaining ]
 	}
 }

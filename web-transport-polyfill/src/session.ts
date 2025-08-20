@@ -1,7 +1,5 @@
 import * as Frame from "./frame";
-//import { WebTransportReceiveStream } from "./receive-stream";
 import * as Stream from "./stream";
-//import { WebTransportSendStream } from "./stream";
 import { VarInt } from "./varint";
 
 export class WebTransportSession implements WebTransport {
@@ -42,7 +40,7 @@ export class WebTransportSession implements WebTransport {
 
 		url = WebTransportSession.#convertToWebSocketUrl(url);
 
-		this.#ws = new WebSocket(url, ["web-transport"]);
+		this.#ws = new WebSocket(url, ["webtransport"]);
 
 		this.ready = new Promise((resolve) => {
 			this.#readyResolve = resolve;
@@ -94,7 +92,7 @@ export class WebTransportSession implements WebTransport {
 		const data = new Uint8Array(event.data);
 		try {
 			const frame = Frame.decode(data);
-			this.#processFrame(frame);
+			this.#recvFrame(frame);
 		} catch (error) {
 			console.error("Failed to decode frame:", error);
 			this.close({ closeCode: 1002, reason: "Protocol violation" });
@@ -114,8 +112,6 @@ export class WebTransportSession implements WebTransport {
 	#handleClose(event: CloseEvent) {
 		if (this.#closed) return;
 
-        console.log("WebSocket close event - code:", event.code, "reason:", event.reason || "(no reason)");
-
 		this.#closed = new Error(
 			`Connection closed: ${event.code} ${event.reason}`,
 		);
@@ -126,10 +122,8 @@ export class WebTransportSession implements WebTransport {
 		});
 	}
 
-	#processFrame(frame: Frame.Any) {
-		if (frame.type === "padding" || frame.type === "ping") {
-			// No-op
-		} else if (frame.type === "stream") {
+	#recvFrame(frame: Frame.Any) {
+		if (frame.type === "stream") {
 			this.#handleStreamFrame(frame);
 		} else if (frame.type === "reset_stream") {
 			this.#handleResetStream(frame);
@@ -146,14 +140,14 @@ export class WebTransportSession implements WebTransport {
 		}
 	}
 
-	#handleStreamFrame(frame: Frame.Data) {
+	async #handleStreamFrame(frame: Frame.Data) {
 		const streamId = frame.id.value.value;
 
 		if (!frame.id.canRecv(this.#isServer)) {
 			throw new Error("Invalid stream ID direction");
 		}
 
-		const stream = this.#recvStreams.get(streamId);
+		let stream = this.#recvStreams.get(streamId);
 		if (!stream) {
 			// We created the stream, we can skip it.
 			if (frame.id.serverInitiated === this.#isServer) return;
@@ -163,6 +157,7 @@ export class WebTransportSession implements WebTransport {
 
 			const reader = new ReadableStream<Uint8Array>({
 				start: (controller) => {
+                    stream = controller;
 					this.#recvStreams.set(streamId, controller);
 				},
 				cancel: () => {
@@ -171,12 +166,12 @@ export class WebTransportSession implements WebTransport {
 						id: frame.id,
 						code: VarInt.from(0),
 					});
+
+                    this.#recvStreams.delete(streamId);
 				},
 			});
 
 			if (frame.id.dir === Stream.Dir.Bi) {
-				let offset = 0n;
-
 				// Incoming bidirectional stream
 				const writer = new WritableStream<Uint8Array>({
 					start: (controller) => {
@@ -187,33 +182,34 @@ export class WebTransportSession implements WebTransport {
 							this.#sendFrame({
 								type: "stream",
 								id: frame.id,
-								offset: VarInt.from(0),
 								data: chunk,
 								fin: false,
 							}),
 							this.closed,
 						]);
-						offset += BigInt(chunk.length);
 					},
-					abort: async () => {
+					abort: (e) => {
+                        console.warn("abort", e);
 						this.#sendPriorityFrame({
 							type: "reset_stream",
 							id: frame.id,
 							code: VarInt.from(0),
-							size: VarInt.from(offset),
 						});
+
+                        this.#sendStreams.delete(streamId);
 					},
 					close: async () => {
 						await Promise.race([
 							this.#sendFrame({
 								type: "stream",
 								id: frame.id,
-								offset: VarInt.from(offset),
 								data: new Uint8Array(),
 								fin: true,
 							}),
 							this.closed,
 						]);
+
+                        this.#sendStreams.delete(streamId);
 					},
 				});
 
@@ -223,7 +219,7 @@ export class WebTransportSession implements WebTransport {
             }
 		}
 
-		stream?.enqueue(frame.data);
+		await stream?.enqueue(frame.data);
 
 		if (frame.fin) {
 			stream?.close();
@@ -252,23 +248,23 @@ export class WebTransportSession implements WebTransport {
             type: "reset_stream",
             id: frame.id,
             code: frame.code,
-            // TODO get the correct finaly size
-            size: new VarInt(0n),
         });
 	}
 
 	async #sendFrame(frame: Frame.Any) {
-		const encoded = Frame.encode(frame);
+
 		// Add some backpressure so we don't saturate the connection
 		while (this.#ws.bufferedAmount > 64 * 1024) {
 			await new Promise((resolve) => setTimeout(resolve, 10));
 		}
-		this.#ws.send(encoded);
+
+		const chunk = Frame.encode(frame);
+        this.#ws.send(chunk);
 	}
 
 	#sendPriorityFrame(frame: Frame.Any) {
-		const encoded = Frame.encode(frame);
-		this.#ws.send(encoded);
+		const chunk = Frame.encode(frame);
+			this.#ws.send(chunk);
 	}
 
 	async createBidirectionalStream(): Promise<WebTransportBidirectionalStream> {
@@ -293,19 +289,18 @@ export class WebTransportSession implements WebTransport {
 					this.#sendFrame({
 						type: "stream",
 						id: streamId,
-						offset: VarInt.from(0),
 						data: chunk,
 						fin: false,
 					}),
 					this.closed,
 				]);
 			},
-			abort: async () => {
+			abort: (e) => {
+                console.warn("abort", e);
 				this.#sendPriorityFrame({
 					type: "reset_stream",
 					id: streamId,
 					code: VarInt.from(0),
-					size: VarInt.from(0),
 				});
 
 				this.#sendStreams.delete(streamId.value.value);
@@ -315,7 +310,6 @@ export class WebTransportSession implements WebTransport {
 					this.#sendFrame({
 						type: "stream",
 						id: streamId,
-						offset: VarInt.from(0),
 						data: new Uint8Array(),
 						fin: true,
 					}),
@@ -357,7 +351,6 @@ export class WebTransportSession implements WebTransport {
 			this.#isServer,
 		);
 
-		let offset = 0n;
 		const session = this;
 
 		const writer = new WritableStream<Uint8Array>({
@@ -369,20 +362,18 @@ export class WebTransportSession implements WebTransport {
 					session.#sendFrame({
 						type: "stream",
 						id: streamId,
-						offset: VarInt.from(offset),
 						data: chunk,
 						fin: false,
 					}),
 					session.closed,
 				]);
-				offset += BigInt(chunk.length);
 			},
-			async abort() {
+			abort(e) {
+                console.warn("abort", e);
 				session.#sendPriorityFrame({
 					type: "reset_stream",
 					id: streamId,
 					code: VarInt.from(0),
-					size: VarInt.from(offset),
 				});
 
 				session.#sendStreams.delete(streamId.value.value);
@@ -392,7 +383,6 @@ export class WebTransportSession implements WebTransport {
 					session.#sendFrame({
 						type: "stream",
 						id: streamId,
-						offset: VarInt.from(offset),
 						data: new Uint8Array(),
 						fin: true,
 					}),

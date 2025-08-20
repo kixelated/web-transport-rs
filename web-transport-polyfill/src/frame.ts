@@ -1,28 +1,26 @@
 import * as Stream from "./stream";
 import { VarInt } from "./varint";
 
-export const Type = {
-	Padding: 0x00,
-	Ping: 0x01,
-	ResetStream: 0x04,
-	StopSending: 0x05,
-	Stream: 0x08, // Base type, actual value depends on flags
-	ApplicationClose: 0x1d,
-} as const;
+const RESET_STREAM = 0x04;
+const STOP_SENDING = 0x05;
+const STREAM = 0x08;
+const STREAM_FIN = 0x09;
+const APPLICATION_CLOSE = 0x1d;
 
 export interface Data {
 	type: "stream";
 	id: Stream.Id;
-	offset: VarInt;
 	data: Uint8Array;
 	fin: boolean;
+    // no offset, because everything is ordered
+    // no length, because WebSocket already provides this
 }
 
 export interface ResetStream {
 	type: "reset_stream";
 	id: Stream.Id;
 	code: VarInt;
-	size: VarInt;
+    // no final size, because there's no flow control
 }
 
 export interface StopSending {
@@ -34,6 +32,7 @@ export interface StopSending {
 export interface ConnectionClose {
 	type: "connection_close";
 	code: VarInt;
+    // no reason size, because WebSocket already provides this.
 	reason: string;
 }
 
@@ -49,161 +48,117 @@ export type Any =
 	| Data
 	| ResetStream
 	| StopSending
-	| ConnectionClose
-	| Padding
-	| Ping;
+	| ConnectionClose;
+
 
 export function encode(frame: Any): Uint8Array {
-	const chunks: Uint8Array[] = [];
-
 	switch (frame.type) {
-		case "padding":
-			chunks.push(new Uint8Array([Type.Padding]));
-			break;
-
-		case "ping":
-			chunks.push(new Uint8Array([Type.Ping]));
-			break;
-
 		case "stream": {
-			// Calculate frame type based on flags
-			let frameType = Type.Stream;
-			if (frame.fin) frameType |= 0x01;
-			if (frame.offset.value !== 0n) frameType |= 0x04;
-			frameType |= 0x02; // Always set length bit
+            // Calculate the maximum size of the buffer we'll need
+            let buffer = new Uint8Array(new ArrayBuffer(1 + 8 + frame.data.length), 0, 1);
 
-			chunks.push(new Uint8Array([frameType]));
-			chunks.push(frame.id.value.encode());
+			buffer[0] = frame.fin ? STREAM_FIN : STREAM;
+			buffer = frame.id.value.encode(buffer);
 
-			if (frame.offset.value !== 0n) {
-				chunks.push(frame.offset.encode());
-			}
+            buffer = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength + frame.data.length);
+            buffer.set(frame.data, buffer.byteLength - frame.data.length);
 
-			// Always encode length
-			const length = VarInt.from(frame.data.length);
-			chunks.push(length.encode());
-			chunks.push(frame.data);
-			break;
+			return buffer;
 		}
 
-		case "reset_stream":
-			chunks.push(new Uint8Array([Type.ResetStream]));
-			chunks.push(frame.id.value.encode());
-			chunks.push(frame.code.encode());
-			chunks.push(frame.size.encode());
-			break;
+		case "reset_stream": {
+            let buffer = new Uint8Array(new ArrayBuffer(1 + 8 + 8), 0, 1);
 
-		case "stop_sending":
-			chunks.push(new Uint8Array([Type.StopSending]));
-			chunks.push(frame.id.value.encode());
-			chunks.push(frame.code.encode());
-			break;
+			buffer[0] = RESET_STREAM;
+			buffer = frame.id.value.encode(buffer);
+			buffer = frame.code.encode(buffer);
+			return buffer;
+		}
 
-		case "connection_close":
-			chunks.push(new Uint8Array([Type.ApplicationClose]));
-			chunks.push(frame.code.encode());
-			chunks.push(new TextEncoder().encode(frame.reason));
-			break;
+		case "stop_sending": {
+            let buffer = new Uint8Array(new ArrayBuffer(1 + 8 + 8), 0, 1);
+
+			buffer[0] = STOP_SENDING;
+			buffer = frame.id.value.encode(buffer);
+			buffer = frame.code.encode(buffer);
+			return buffer;
+		}
+
+		case "connection_close": {
+			const body = new TextEncoder().encode(frame.reason);
+            let buffer = new Uint8Array(new ArrayBuffer(1 + 8 + body.length), 0, 1);
+
+			buffer[0] = APPLICATION_CLOSE;
+			buffer = frame.code.encode(buffer);
+
+            buffer = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength + body.length);
+            buffer.set(body, buffer.byteLength - body.length);
+
+			return buffer;
+		}
 	}
-
-	// Combine all chunks
-	const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
-	const result = new Uint8Array(totalLength);
-	let offset = 0;
-	for (const chunk of chunks) {
-		result.set(chunk, offset);
-		offset += chunk.length;
-	}
-	return result;
 }
 
 export function decode(buffer: Uint8Array): Any {
-	let offset = 0;
+    if (buffer.length === 0) {
+        throw new Error("Invalid frame: empty buffer");
+    }
 
-	const frameTypeResult = VarInt.decode(buffer, offset);
-	offset += frameTypeResult.bytesRead;
-	const frameType = frameTypeResult.value.value;
+    const frameType = buffer[0];
+    buffer = buffer.slice(1);
 
-	if (frameType === BigInt(Type.Padding)) {
-		return { type: "padding" };
-	}
+    let v: VarInt;
 
-	if (frameType === BigInt(Type.Ping)) {
-		return { type: "ping" };
-	}
+	if (frameType === RESET_STREAM) {
+        [ v, buffer ]= VarInt.decode(buffer);
+        const id = new Stream.Id(v);
 
-	if (frameType === BigInt(Type.ResetStream)) {
-		const idResult = VarInt.decode(buffer, offset);
-		offset += idResult.bytesRead;
-		const codeResult = VarInt.decode(buffer, offset);
-		offset += codeResult.bytesRead;
-		const sizeResult = VarInt.decode(buffer, offset);
-		offset += sizeResult.bytesRead;
+        [ v, buffer ]= VarInt.decode(buffer);
+        const code = v;
 
 		return {
 			type: "reset_stream",
-			id: new Stream.Id(idResult.value),
-			code: codeResult.value,
-			size: sizeResult.value,
+			id,
+			code,
 		};
 	}
 
-	if (frameType === BigInt(Type.StopSending)) {
-		const idResult = VarInt.decode(buffer, offset);
-		offset += idResult.bytesRead;
-		const codeResult = VarInt.decode(buffer, offset);
-		offset += codeResult.bytesRead;
+	if (frameType === STOP_SENDING) {
+        [ v, buffer ]= VarInt.decode(buffer);
+        const id = new Stream.Id(v);
+
+        [ v, buffer ]= VarInt.decode(buffer);
+        const code = v;
 
 		return {
 			type: "stop_sending",
-			id: new Stream.Id(idResult.value),
-			code: codeResult.value,
+			id,
+			code,
 		};
 	}
 
-	if (frameType === BigInt(Type.ApplicationClose)) {
-		const codeResult = VarInt.decode(buffer, offset);
-		offset += codeResult.bytesRead;
-		const reasonBytes = buffer.slice(offset);
-		const reason = new TextDecoder().decode(reasonBytes);
+	if (frameType === APPLICATION_CLOSE) {
+        [ v, buffer ]= VarInt.decode(buffer);
+        const code = v;
+
+		const reason = new TextDecoder().decode(buffer);
 
 		return {
 			type: "connection_close",
-			code: codeResult.value,
+			code,
 			reason,
 		};
 	}
 
-	// Stream frame (0x08-0x0f)
-	if (frameType >= 0x08n && frameType <= 0x0fn) {
-		const idResult = VarInt.decode(buffer, offset);
-		offset += idResult.bytesRead;
-
-		let frameOffset = VarInt.from(0);
-		if ((frameType & 0x04n) !== 0n) {
-			const offsetResult = VarInt.decode(buffer, offset);
-			offset += offsetResult.bytesRead;
-			frameOffset = offsetResult.value;
-		}
-
-		let dataLength: number;
-		if ((frameType & 0x02n) !== 0n) {
-			const lengthResult = VarInt.decode(buffer, offset);
-			offset += lengthResult.bytesRead;
-			dataLength = Number(lengthResult.value.value);
-		} else {
-			dataLength = buffer.length - offset;
-		}
-
-		const data = buffer.slice(offset, offset + dataLength);
-		const fin = (frameType & 0x01n) !== 0n;
+	if (frameType === STREAM || frameType === STREAM_FIN) {
+        [ v, buffer ]= VarInt.decode(buffer);
+        const id = new Stream.Id(v);
 
 		return {
 			type: "stream",
-			id: new Stream.Id(idResult.value),
-			offset: frameOffset,
-			data,
-			fin,
+			id,
+			data: buffer,
+			fin: frameType === STREAM_FIN,
 		};
 	}
 
