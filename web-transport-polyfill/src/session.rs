@@ -208,14 +208,10 @@ where
                     return Err(Error::ProtocolViolation("invalid stream id".into()));
                 }
 
-                match self.recv_streams.entry(reset.id) {
-                    hash_map::Entry::Occupied(mut e) => {
-                        e.get_mut().inbound_reset.send(reset).ok();
-                        e.remove();
-                    }
-                    // Already closed. TODO slightly wrong
-                    _ => {}
-                };
+                if let hash_map::Entry::Occupied(mut e) = self.recv_streams.entry(reset.id) {
+                    e.get_mut().inbound_reset.send(reset).ok();
+                    e.remove();
+                }
             }
             Frame::StopSending(stop) => {
                 if !stop.id.can_send(self.is_server) {
