@@ -11,5 +11,8 @@ edition = "2021"
 keywords = ["quic", "http3", "webtransport"]
 categories = ["network-programming", "web-programming"]
 
+# async traits
+rust-version = "1.75"
+
 [dependencies]
 bytes = "1"

@@ -6,7 +6,7 @@ use std::{
     },
 };
 
-use crate::{tungstenite, ResetStream, StopSending, Stream, StreamDir, ALPN};
+use crate::{tungstenite, ConnectionClose, ResetStream, StopSending, Stream, StreamDir, ALPN};
 use crate::{Error, Frame, StreamId};
 use bytes::{Buf, BufMut, Bytes};
 use futures::{SinkExt, StreamExt};
@@ -335,7 +335,7 @@ impl Session {
         };
 
         let ws = tokio_tungstenite::accept_hdr_async_with_config(socket, callback, None).await?;
-        Ok(Session::new(ws, false))
+        Ok(Session::new(ws, true))
     }
 
     pub async fn connect(url: &str) -> Result<Session, Error> {
@@ -346,7 +346,7 @@ impl Session {
         );
 
         let (ws_stream, _) = tokio_tungstenite::connect_async(request).await?;
-        Ok(Session::new(ws_stream, true))
+        Ok(Session::new(ws_stream, false))
     }
 }
 
@@ -443,6 +443,13 @@ impl generic::Session for Session {
     }
 
     fn close(&self, code: u32, reason: &str) {
+        // Notify peer first
+        let frame = ConnectionClose {
+            code: VarInt::from(code),
+            reason: reason.to_string(),
+        };
+        let _ = self.outbound_priority.send(frame.into());
+
         self.closed
             .send(Some(Error::ConnectionClosed {
                 code: VarInt::from(code),
@@ -538,10 +545,13 @@ impl generic::SendStream for SendStream {
         };
 
         tokio::select! {
-            _ = self.outbound.send(frame.into()) => {
-                self.offset += size as u64;
-                Ok(size)
-            }
+            result = self.outbound.send(frame.into()) => {
+                                if result.is_err() {
+                                    return Err(Error::Closed);
+                                }
+                                self.offset += size as u64;
+                                Ok(size)
+                            }
             Some(stop) = self.inbound_stopped.recv() => {
                 Err(self.recv_stop(stop.code))
             }

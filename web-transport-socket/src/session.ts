@@ -81,7 +81,7 @@ export default class WebTransportSocket implements WebTransport {
 		}
 
 		// Build WebSocket URL
-		return `${protocol}//${urlObj.host}/ws${urlObj.pathname}${urlObj.search}`;
+		return `${protocol}//${urlObj.host}${urlObj.pathname}${urlObj.search}`;
 	}
 
 	#handleMessage(event: MessageEvent) {
@@ -101,10 +101,7 @@ export default class WebTransportSocket implements WebTransport {
 		if (this.#closed) return;
 
 		this.#closed = new Error(`WebSocket error: ${event.type}`);
-		this.#closedResolve({
-			closeCode: 1006,
-			reason: "WebSocket error",
-		});
+        this.#close(1006, "WebSocket error");
 	}
 
 	#handleClose(event: CloseEvent) {
@@ -113,11 +110,7 @@ export default class WebTransportSocket implements WebTransport {
 		this.#closed = new Error(
 			`Connection closed: ${event.code} ${event.reason}`,
 		);
-
-		this.#closedResolve({
-			closeCode: event.code,
-			reason: event.reason,
-		});
+        this.#close(event.code, event.reason);
 	}
 
 	#recvFrame(frame: Frame.Any) {
@@ -397,6 +390,20 @@ export default class WebTransportSocket implements WebTransport {
 		return writer;
 	}
 
+    #close(code: number, reason: string) {
+		this.#closedResolve({
+			closeCode: code,
+			reason,
+		});
+
+         // Fail active streams so consumers unblock
+        try { this.#incomingBidirectionalStreams.close(); } catch {}
+        try { this.#incomingUnidirectionalStreams.close(); } catch {}
+        for (const c of this.#sendStreams.values()) { try { c.error(this.#closed); } catch {} }
+        for (const c of this.#recvStreams.values()) { try { c.error(this.#closed); } catch {} }
+        this.#sendStreams.clear();
+        this.#recvStreams.clear();
+    }
 
 	close(info?: { closeCode?: number; reason?: string }) {
 		if (this.#closed) return;
@@ -413,6 +420,8 @@ export default class WebTransportSocket implements WebTransport {
 		setTimeout(() => {
 			this.#ws.close();
 		}, 100);
+
+        this.#close(code, reason);
 	}
 
 	get congestionControl(): string {

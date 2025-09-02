@@ -108,9 +108,8 @@ pub trait SendStream: Send {
         buf: &mut B,
     ) -> impl Future<Output = Result<(), Self::Error>> + Send {
         async move {
-            let mut pos = 0;
-            while pos < buf.remaining() {
-                pos += self.write_buf(buf).await?;
+            while buf.has_remaining() {
+                self.write_buf(buf).await?;
             }
             Ok(())
         }
@@ -164,14 +163,14 @@ pub trait RecvStream: Send {
         buf: &mut B,
     ) -> impl Future<Output = Result<usize, Self::Error>> + Send {
         async move {
-            let mut pos = 0;
-            while pos < buf.remaining_mut() {
+            let mut size = 0;
+            while buf.has_remaining_mut() {
                 match self.read_buf(buf).await? {
-                    Some(n) => pos += n,
+                    Some(n) => size += n,
                     None => break,
                 }
             }
-            Ok(pos)
+            Ok(size)
         }
     }
 }

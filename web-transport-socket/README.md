@@ -2,15 +2,6 @@
 
 A WebTransport polyfill that uses WebSocket as the underlying transport, with implementations in both Rust and TypeScript/JavaScript.
 
-## Structure
-
-This package contains both Rust and TypeScript implementations that share the same wire protocol:
-
-- `src/` - Rust implementation
-- `src-js/` - TypeScript/JavaScript implementation
-- `Cargo.toml` - Rust package configuration
-- `package.json` - Node.js package configuration
-
 ## Wire Protocol
 
 Both implementations use the same QUIC-like frame encoding over WebSocket:
@@ -18,19 +9,24 @@ Both implementations use the same QUIC-like frame encoding over WebSocket:
 - Stream multiplexing with bidirectional and unidirectional streams
 - Frame types: STREAM, RESET_STREAM, STOP_SENDING, etc.
 
+This is a simplified version of [QMux](https://datatracker.ietf.org/doc/draft-opik-quic-qmux/), which might be used in the future.
+
 ## JavaScript/TypeScript Usage
 
-The polyfill automatically installs itself when WebTransport is not available:
+Check if WebTransport is available, otherwise install the polyfill:
 
 ```javascript
-import "@kixelated/web-transport-polyfill"
+import { install } from "@kixelated/web-transport-socket"
+
+// Install the polyfill if needed.
+install();
 
 // Now WebTransport is available even in Safari
 const transport = new WebTransport("https://example.com/path")
 ```
 
-URLs are automatically rewritten to include `/ws` prefix for WebSocket compatibility:
-- `https://example.com/path` → `wss://example.com/ws/path`
+URLs are automatically rewritten with the WebSocket protocol:
+- `https://example.com/path` → `wss://example.com/path`
 
 ## Building
 

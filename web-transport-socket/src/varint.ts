@@ -50,6 +50,10 @@ export class VarInt {
 	}
 
 	static decode(buffer: Uint8Array): [VarInt, Uint8Array] {
+        if (buffer.byteLength < 1) {
+            throw new Error("Unexpected end of buffer")
+        }
+
 		const view = new DataView(buffer.buffer, buffer.byteOffset)
 		const firstByte = view.getUint8(0)
 		const tag = firstByte >> 6
