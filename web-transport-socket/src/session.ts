@@ -2,7 +2,7 @@ import * as Frame from "./frame";
 import * as Stream from "./stream";
 import { VarInt } from "./varint";
 
-export class WebTransportPolyfill implements WebTransport {
+export class WebTransportSocket implements WebTransport {
 	#ws: WebSocket;
 	#isServer = false;
 	#closed?: Error;
@@ -28,8 +28,6 @@ export class WebTransportPolyfill implements WebTransport {
 	readonly datagrams = new Datagrams();
 
 	constructor(url: string | URL, options?: WebTransportOptions) {
-        console.warn("using WebTransport polyfill over WebSocket");
-
         if (options?.requireUnreliable) {
             throw new Error("not allowed to use WebSocket; requireUnreliable is true");
         }
@@ -38,7 +36,7 @@ export class WebTransportPolyfill implements WebTransport {
             console.warn("serverCertificateHashes is not supported; trying anyway");
         }
 
-		url = WebTransportPolyfill.#convertToWebSocketUrl(url);
+		url = WebTransportSocket.#convertToWebSocketUrl(url);
 
 		this.#ws = new WebSocket(url, ["webtransport"]);
 

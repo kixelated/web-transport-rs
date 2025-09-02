@@ -1,5 +1,5 @@
 [package]
-name = "web-transport-ws"
+name = "web-transport-socket"
 description = "WebTransport polyfill using WebSockets"
 authors = ["Luke Curley"]
 repository = "https://github.com/kixelated/web-transport-rs"
@@ -8,7 +8,7 @@ license = "MIT OR Apache-2.0"
 version = "0.1.0"
 edition = "2021"
 
-keywords = ["quic", "http3", "webtransport"]
+keywords = ["quic", "http3", "webtransport", "websocket", "polyfill"]
 categories = ["network-programming", "web-programming"]
 
 [dependencies]

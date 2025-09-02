@@ -1,5 +1,5 @@
 {
-  "name": "@kixelated/web-transport-ws",
+  "name": "@kixelated/web-transport-socket",
   "version": "0.1.0",
   "description": "WebTransport polyfill using WebSockets",
   "type": "module",
