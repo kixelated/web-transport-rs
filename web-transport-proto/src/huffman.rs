@@ -351,11 +351,11 @@ impl Iterator for DecodeIter<'_> {
 }
 
 pub trait HpackStringDecode {
-    fn hpack_decode(&self) -> DecodeIter;
+    fn hpack_decode(&self) -> DecodeIter<'_>;
 }
 
 impl HpackStringDecode for Vec<u8> {
-    fn hpack_decode(&self) -> DecodeIter {
+    fn hpack_decode(&self) -> DecodeIter<'_> {
         DecodeIter {
             bit_pos: BitWindow::new(),
             content: self,
