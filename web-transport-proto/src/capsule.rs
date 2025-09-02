@@ -11,7 +11,7 @@ const MAX_MESSAGE_SIZE: usize = 1024;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Capsule {
-    CloseWebTransportSession { code: u32, reason: String },
+    CloseWebTransportPolyfill { code: u32, reason: String },
     Unknown { typ: VarInt, payload: Bytes },
 }
 
@@ -49,7 +49,7 @@ impl Capsule {
                     let error_message =
                         String::from_utf8(message_bytes).map_err(|_| CapsuleError::InvalidUtf8)?;
 
-                    return Ok(Self::CloseWebTransportSession {
+                    return Ok(Self::CloseWebTransportPolyfill {
                         code: error_code,
                         reason: error_message,
                     });
@@ -70,7 +70,7 @@ impl Capsule {
 
     pub fn encode<B: BufMut>(&self, buf: &mut B) {
         match self {
-            Self::CloseWebTransportSession {
+            Self::CloseWebTransportPolyfill {
                 code: error_code,
                 reason: error_message,
             } => {
@@ -145,14 +145,14 @@ mod tests {
         let capsule = Capsule::decode(&mut buf).unwrap();
 
         match capsule {
-            Capsule::CloseWebTransportSession {
+            Capsule::CloseWebTransportPolyfill {
                 code: error_code,
                 reason: error_message,
             } => {
                 assert_eq!(error_code, 420);
                 assert_eq!(error_message, "test");
             }
-            _ => panic!("Expected CloseWebTransportSession"),
+            _ => panic!("Expected CloseWebTransportPolyfill"),
         }
 
         assert_eq!(buf.len(), 0); // All bytes consumed
@@ -160,7 +160,7 @@ mod tests {
 
     #[test]
     fn test_close_webtransport_session_encode() {
-        let capsule = Capsule::CloseWebTransportSession {
+        let capsule = Capsule::CloseWebTransportPolyfill {
             code: 420,
             reason: "test".to_string(),
         };
@@ -174,7 +174,7 @@ mod tests {
 
     #[test]
     fn test_close_webtransport_session_roundtrip() {
-        let original = Capsule::CloseWebTransportSession {
+        let original = Capsule::CloseWebTransportPolyfill {
             code: 12345,
             reason: "Connection closed by application".to_string(),
         };
@@ -191,7 +191,7 @@ mod tests {
 
     #[test]
     fn test_empty_error_message() {
-        let capsule = Capsule::CloseWebTransportSession {
+        let capsule = Capsule::CloseWebTransportPolyfill {
             code: 0,
             reason: String::new(),
         };

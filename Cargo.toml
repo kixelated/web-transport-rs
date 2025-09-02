@@ -2,9 +2,9 @@
 members = [
     "web-transport",
     "web-transport-generic",
-    "web-transport-polyfill",
     "web-transport-proto",
     "web-transport-quinn",
     "web-transport-wasm",
+    "web-transport-ws",
 ]
 resolver = "2"

@@ -485,6 +485,15 @@ impl SendStream {
     }
 }
 
+impl Drop for SendStream {
+    fn drop(&mut self) {
+        if !self.fin && self.closed.is_none() {
+            println!("SendStream dropped");
+            generic::SendStream::reset(self, 0);
+        }
+    }
+}
+
 impl generic::SendStream for SendStream {
     type Error = Error;
 
@@ -595,6 +604,15 @@ impl RecvStream {
 
         self.closed = Some(Error::StreamReset(code));
         Error::StreamReset(code)
+    }
+}
+
+impl Drop for RecvStream {
+    fn drop(&mut self) {
+        if !self.fin && self.closed.is_none() {
+            println!("RecvStream dropped");
+            generic::RecvStream::stop(self, 0);
+        }
     }
 }
 
