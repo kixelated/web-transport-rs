@@ -222,8 +222,13 @@ where
                     stream.inbound_stopped.send(stop).ok();
                 }
             }
-            Frame::ConnectionClose(_close) => {
-                todo!("close connection");
+            Frame::ConnectionClose(close) => {
+                self.closed
+                    .send(Some(Error::ConnectionClosed {
+                        code: close.code,
+                        reason: close.reason,
+                    }))
+                    .ok();
             }
         }
 

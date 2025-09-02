@@ -111,7 +111,7 @@ impl Session {
 
             match web_transport_proto::Capsule::decode(&mut cursor) {
                 Ok(capsule) => match capsule {
-                    web_transport_proto::Capsule::CloseWebTransportPolyfill { code, reason } => {
+                    web_transport_proto::Capsule::CloseWebTransportSession { code, reason } => {
                         return (code, reason)
                     }
                     web_transport_proto::Capsule::Unknown { typ, payload } => {

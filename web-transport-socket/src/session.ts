@@ -2,7 +2,7 @@ import * as Frame from "./frame";
 import * as Stream from "./stream";
 import { VarInt } from "./varint";
 
-export class WebTransportSocket implements WebTransport {
+export default class WebTransportSocket implements WebTransport {
 	#ws: WebSocket;
 	#isServer = false;
 	#closed?: Error;
