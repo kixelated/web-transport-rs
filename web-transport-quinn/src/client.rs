@@ -20,7 +20,7 @@ pub enum CongestionControl {
 ///
 /// This is optional; advanced users may use [Client::new] directly.
 pub struct ClientBuilder {
-    provider: Arc<rustls::crypto::CryptoProvider>,
+    provider: Provider,
     congestion_controller:
         Option<Arc<dyn quinn::congestion::ControllerFactory + Send + Sync + 'static>>,
 }
@@ -29,7 +29,7 @@ impl ClientBuilder {
     /// Create a Client builder, which can be used to establish multiple [Session]s.
     pub fn new() -> Self {
         Self {
-            provider: Arc::new(Provider::default()),
+            provider: Provider::default(),
             congestion_controller: None,
         }
     }
@@ -90,9 +90,10 @@ impl ClientBuilder {
         self,
         certs: Vec<CertificateDer>,
     ) -> Result<Client, ClientError> {
-        let hashes = certs
-            .iter()
-            .map(|cert| Provider::sha256(cert).as_ref().to_vec());
+        let hashes = certs.iter().map({
+            let provider = self.provider.clone();
+            move |cert| provider.sha256(cert).as_ref().to_vec()
+        });
 
         self.with_server_certificate_hashes(hashes.collect())
     }
@@ -124,7 +125,7 @@ impl ClientBuilder {
     /// This makes the connection vulnerable to man-in-the-middle attacks.
     /// Only use it in secure environments, such as in local development or over a VPN connection.
     pub unsafe fn with_no_certificate_verification(self) -> Result<Client, ClientError> {
-        let noop = NoCertificateVerification(self.provider.clone());
+        let noop = NoCertificateVerification(self.provider.provider());
 
         let crypto = self
             .builder()
@@ -136,7 +137,7 @@ impl ClientBuilder {
     }
 
     fn builder(&self) -> rustls::ConfigBuilder<rustls::ClientConfig, rustls::WantsVerifier> {
-        rustls::ClientConfig::builder_with_provider(self.provider.clone())
+        rustls::ClientConfig::builder_with_provider(self.provider.provider())
             .with_protocol_versions(&[&rustls::version::TLS13])
             .unwrap()
     }
@@ -230,7 +231,7 @@ impl Default for Client {
 
 #[derive(Debug)]
 struct ServerFingerprints {
-    provider: Arc<rustls::crypto::CryptoProvider>,
+    provider: Provider,
     fingerprints: Vec<Vec<u8>>,
 }
 
@@ -243,7 +244,7 @@ impl ServerCertVerifier for ServerFingerprints {
         _ocsp_response: &[u8],
         _now: rustls::pki_types::UnixTime,
     ) -> Result<rustls::client::danger::ServerCertVerified, rustls::Error> {
-        let cert_hash = Provider::sha256(end_entity);
+        let cert_hash = self.provider.sha256(end_entity);
         if self
             .fingerprints
             .iter()
@@ -267,7 +268,7 @@ impl ServerCertVerifier for ServerFingerprints {
             message,
             cert,
             dss,
-            &self.provider.signature_verification_algorithms,
+            &self.provider.provider().signature_verification_algorithms,
         )
     }
 
@@ -281,12 +282,13 @@ impl ServerCertVerifier for ServerFingerprints {
             message,
             cert,
             dss,
-            &self.provider.signature_verification_algorithms,
+            &self.provider.provider().signature_verification_algorithms,
         )
     }
 
     fn supported_verify_schemes(&self) -> Vec<rustls::SignatureScheme> {
         self.provider
+            .provider()
             .signature_verification_algorithms
             .supported_schemes()
     }

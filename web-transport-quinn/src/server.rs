@@ -10,6 +10,7 @@ use url::Url;
 ///
 /// This is optional; advanced users may use [Server::new] directly.
 pub struct ServerBuilder {
+    provider: Provider,
     addr: std::net::SocketAddr,
     congestion_controller:
         Option<Arc<dyn quinn::congestion::ControllerFactory + Send + Sync + 'static>>,
@@ -25,6 +26,7 @@ impl ServerBuilder {
     /// Create a server builder with sane defaults.
     pub fn new() -> Self {
         Self {
+            provider: Provider::default(),
             addr: "[::]:443".parse().unwrap(),
             congestion_controller: None,
         }
@@ -59,7 +61,7 @@ impl ServerBuilder {
         key: PrivateKeyDer<'static>,
     ) -> Result<Server, ServerError> {
         // Standard Quinn setup
-        let mut config = rustls::ServerConfig::builder_with_provider(Arc::new(Provider::default()))
+        let mut config = rustls::ServerConfig::builder_with_provider(self.provider.provider())
             .with_protocol_versions(&[&rustls::version::TLS13])?
             .with_no_client_auth()
             .with_single_cert(chain, key)?;
