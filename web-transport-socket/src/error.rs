@@ -2,14 +2,20 @@ use web_transport_proto::{VarInt, VarIntUnexpectedEnd};
 
 #[derive(Debug, thiserror::Error, Clone)]
 pub enum Error {
-    #[error("websocket error: {0}")]
-    WebSocket(String),
-
     #[error("invalid frame type: {0}")]
     InvalidFrameType(u8),
 
-    #[error("protocol violation: {0}")]
-    ProtocolViolation(String),
+    #[error("text messages not allowed")]
+    NoText,
+
+    #[error("pong messages not allowed")]
+    NoPong,
+
+    #[error("generic frames not allowed")]
+    NoGenericFrames,
+
+    #[error("invalid stream id")]
+    InvalidStreamId,
 
     #[error("stream closed")]
     StreamClosed,
@@ -37,8 +43,8 @@ impl From<VarIntUnexpectedEnd> for Error {
 }
 
 impl From<tokio_tungstenite::tungstenite::Error> for Error {
-    fn from(err: tokio_tungstenite::tungstenite::Error) -> Self {
-        Self::WebSocket(err.to_string())
+    fn from(_err: tokio_tungstenite::tungstenite::Error) -> Self {
+        Self::Closed
     }
 }
 

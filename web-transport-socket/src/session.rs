@@ -70,13 +70,29 @@ where
             tokio::select! {
                 biased;
                 message = self.ws.next() => {
-                    match message {
-                        Some(Ok(Message::Binary(data))) => {
+                    match message.ok_or(Error::Closed)?? {
+                        Message::Binary(data) => {
                             let frame = Frame::decode(data.into())?;
                             self.recv_frame(frame).await?;
                         },
-                        None => return Err(Error::Closed),
-                        _ => continue,
+                        Message::Close(_) => {
+                            self.closed
+                                .send(Some(Error::Closed))
+                                .ok();
+                            return Ok(());
+                        },
+                        Message::Text(_) => {
+                            return Err(Error::NoText);
+                        },
+                        Message::Ping(data) => {
+                            self.ws.send(Message::Pong(data)).await?;
+                        },
+                        Message::Pong(_) => {
+                            return Err(Error::NoPong);
+                        },
+                        Message::Frame(_) => {
+                            return Err(Error::NoGenericFrames);
+                        }
                     };
                 }
                 Some((id, send)) = self.create_uni.recv() => {
@@ -133,7 +149,7 @@ where
         match frame {
             Frame::Stream(stream) => {
                 if !stream.id.can_recv(self.is_server) {
-                    return Err(Error::ProtocolViolation("invalid stream id".into()));
+                    return Err(Error::InvalidStreamId);
                 }
 
                 let mut state = match self.recv_streams.entry(stream.id) {
@@ -205,7 +221,7 @@ where
             }
             Frame::ResetStream(reset) => {
                 if !reset.id.can_recv(self.is_server) {
-                    return Err(Error::ProtocolViolation("invalid stream id".into()));
+                    return Err(Error::InvalidStreamId);
                 }
 
                 if let hash_map::Entry::Occupied(mut e) = self.recv_streams.entry(reset.id) {
@@ -215,7 +231,7 @@ where
             }
             Frame::StopSending(stop) => {
                 if !stop.id.can_send(self.is_server) {
-                    return Err(Error::ProtocolViolation("invalid stream id".into()));
+                    return Err(Error::InvalidStreamId);
                 }
 
                 if let Some(stream) = self.send_streams.get_mut(&stop.id) {
