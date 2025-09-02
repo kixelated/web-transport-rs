@@ -488,7 +488,6 @@ impl SendStream {
 impl Drop for SendStream {
     fn drop(&mut self) {
         if !self.fin && self.closed.is_none() {
-            println!("SendStream dropped");
             generic::SendStream::reset(self, 0);
         }
     }
@@ -533,7 +532,7 @@ impl generic::SendStream for SendStream {
     }
 
     fn reset(&mut self, code: u32) {
-        if self.closed.is_some() {
+        if self.fin || self.closed.is_some() {
             return;
         }
 
@@ -610,7 +609,6 @@ impl RecvStream {
 impl Drop for RecvStream {
     fn drop(&mut self) {
         if !self.fin && self.closed.is_none() {
-            println!("RecvStream dropped");
             generic::RecvStream::stop(self, 0);
         }
     }
@@ -619,10 +617,11 @@ impl Drop for RecvStream {
 impl generic::RecvStream for RecvStream {
     type Error = Error;
 
-    async fn read(&mut self) -> Result<Option<Bytes>, Self::Error> {
+    async fn read(&mut self, max: usize) -> Result<Option<Bytes>, Self::Error> {
         loop {
             if !self.buffer.is_empty() {
-                return Ok(Some(self.buffer.split_to(self.buffer.len())));
+                let to_read = max.min(self.buffer.len());
+                return Ok(Some(self.buffer.split_to(to_read)));
             }
 
             if self.fin {
@@ -637,10 +636,7 @@ impl generic::RecvStream for RecvStream {
                 Some(stream) = self.inbound_data.recv() => {
                     assert_eq!(stream.id, self.id);
                     self.fin = stream.fin;
-
-                    if !stream.data.is_empty() {
-                        return Ok(Some(stream.data));
-                    }
+                    self.buffer = stream.data;
                 }
                 Some(reset) = self.inbound_reset.recv() => {
                     return Err(self.recv_reset(reset.code));
@@ -656,17 +652,15 @@ impl generic::RecvStream for RecvStream {
     ) -> Result<Option<usize>, Self::Error> {
         if !self.buffer.is_empty() {
             let to_read = buf.remaining_mut().min(self.buffer.len());
-            buf.put_slice(&self.buffer[..to_read]);
-            self.buffer.advance(to_read);
+            buf.put(self.buffer.split_to(to_read));
             return Ok(Some(to_read));
         }
 
-        Ok(match self.read().await? {
-            Some(mut data) => {
-                let to_read = buf.remaining_mut().min(data.len());
-                buf.put_slice(&data[..to_read]);
-                self.buffer = data.split_off(to_read);
-                Some(to_read)
+        Ok(match self.read(buf.remaining_mut()).await? {
+            Some(data) => {
+                let size = data.len();
+                buf.put(data);
+                Some(size)
             }
             None => None,
         })

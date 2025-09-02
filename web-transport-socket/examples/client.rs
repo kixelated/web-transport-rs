@@ -20,7 +20,10 @@ async fn main() -> anyhow::Result<()> {
 
     // Receive back the same message
     let mut recv = session.accept_uni().await?;
-    let data = recv.read().await?.context("Failed to read message")?;
+    let data = recv
+        .read(usize::MAX)
+        .await?
+        .context("Failed to read message")?;
     println!("Received: {}", String::from_utf8_lossy(&data));
 
     println!("\n=== Testing bidirectional stream ===");
@@ -30,7 +33,7 @@ async fn main() -> anyhow::Result<()> {
     send.write(message).await?;
     println!("Sent: Hello from bidirectional stream!");
 
-    if let Ok(Some(response)) = recv.read().await {
+    if let Ok(Some(response)) = recv.read(usize::MAX).await {
         let text = String::from_utf8_lossy(&response);
         println!("Received: {text}");
     }

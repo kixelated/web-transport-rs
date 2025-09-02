@@ -95,8 +95,8 @@ impl web_transport_generic::RecvStream for RecvStream {
         Self::stop(self, code).ok();
     }
 
-    async fn read(&mut self) -> Result<Option<Bytes>, Self::Error> {
-        self.read_chunk(1024, true)
+    async fn read(&mut self, max: usize) -> Result<Option<Bytes>, Self::Error> {
+        self.read_chunk(max, true)
             .await
             .map(|r| r.map(|chunk| chunk.bytes))
     }
@@ -108,7 +108,7 @@ impl web_transport_generic::RecvStream for RecvStream {
         let dst = buf.chunk_mut();
         let dst = unsafe { &mut *(dst as *mut _ as *mut [u8]) };
 
-        let size = match self.read(dst).await? {
+        let size = match self.inner.read(dst).await? {
             Some(size) => size,
             None => return Ok(None),
         };

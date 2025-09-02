@@ -148,7 +148,9 @@ export class WebTransportSocket implements WebTransport {
 		let stream = this.#recvStreams.get(streamId);
 		if (!stream) {
 			// We created the stream, we can skip it.
-			if (frame.id.serverInitiated === this.#isServer) return;
+			if (frame.id.serverInitiated === this.#isServer) {
+                return;
+            }
 			if (!frame.id.canRecv(this.#isServer)) {
 				throw new Error("received write-only stream");
 			}
@@ -217,7 +219,9 @@ export class WebTransportSocket implements WebTransport {
             }
 		}
 
-		await stream?.enqueue(frame.data);
+        if (frame.data.byteLength > 0) {
+            stream?.enqueue(frame.data);
+        }
 
 		if (frame.fin) {
 			stream?.close();
@@ -250,7 +254,6 @@ export class WebTransportSocket implements WebTransport {
 	}
 
 	async #sendFrame(frame: Frame.Any) {
-
 		// Add some backpressure so we don't saturate the connection
 		while (this.#ws.bufferedAmount > 64 * 1024) {
 			await new Promise((resolve) => setTimeout(resolve, 10));

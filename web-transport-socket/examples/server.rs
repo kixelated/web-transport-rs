@@ -37,7 +37,7 @@ async fn run(stream: tokio::net::TcpStream) -> anyhow::Result<()> {
                 println!("Created unidirectional stream to echo back");
 
                 // NOTE: You should spawn a task to read in parallel
-                while let Some(data) = uni.read().await? {
+                while let Some(data) = uni.read(usize::MAX).await? {
                     println!(
                         "Received {} bytes on unidirectional stream: {}",
                         data.len(),
@@ -56,7 +56,7 @@ async fn run(stream: tokio::net::TcpStream) -> anyhow::Result<()> {
                 println!("Accepted bidirectional stream");
 
                 // NOTE: You should spawn a task to read in parallel
-                while let Some(data) = recv.read().await? {
+                while let Some(data) = recv.read(usize::MAX).await? {
                     println!("Received {} bytes on bidirectional stream", data.len());
                     send.write_all(&data).await?;
                     println!("Echoing back {} bytes on bidirectional stream: {}", data.len(), String::from_utf8_lossy(&data));

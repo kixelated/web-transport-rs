@@ -124,10 +124,13 @@ pub trait SendStream: Send {
 pub trait RecvStream: Send {
     type Error: Error;
 
-    /// Read the next chunk of data.
+    /// Read the next chunk of data, up to the max size.
     ///
     /// This returns a chunk of data instead of copying, which may be more efficient.
-    fn read(&mut self) -> impl Future<Output = Result<Option<Bytes>, Self::Error>> + Send;
+    fn read(
+        &mut self,
+        max: usize,
+    ) -> impl Future<Output = Result<Option<Bytes>, Self::Error>> + Send;
 
     /// Read some data into the provided buffer.
     ///
