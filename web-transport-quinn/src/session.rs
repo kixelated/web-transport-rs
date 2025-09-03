@@ -153,7 +153,7 @@ impl Session {
             self.conn
                 .accept_uni()
                 .await
-                .map(RecvStream::new)
+                .map(|recv| RecvStream::new(Arc::new(recv.id()), recv))
                 .map_err(Into::into)
         }
     }
@@ -166,7 +166,14 @@ impl Session {
             self.conn
                 .accept_bi()
                 .await
-                .map(|(send, recv)| (SendStream::new(send), RecvStream::new(recv)))
+                .map(|(send, recv)| {
+                    debug_assert_eq!(send.id(), recv.id());
+                    let id = Arc::new(send.id());
+                    (
+                        SendStream::new(Arc::clone(&id), send),
+                        RecvStream::new(id, recv),
+                    )
+                })
                 .map_err(Into::into)
         }
     }
@@ -183,7 +190,7 @@ impl Session {
 
         // Reset the stream priority back to the default of 0.
         send.set_priority(0).ok();
-        Ok(SendStream::new(send))
+        Ok(SendStream::new(Arc::new(send.id()), send))
     }
 
     /// Open a new bidirectional stream. See [`quinn::Connection::open_bi`].
@@ -196,9 +203,15 @@ impl Session {
         send.set_priority(i32::MAX).ok();
         Self::write_full(&mut send, &self.header_bi).await?;
 
+        debug_assert_eq!(send.id(), recv.id());
+        let id = Arc::new(send.id());
+
         // Reset the stream priority back to the default of 0.
         send.set_priority(0).ok();
-        Ok((SendStream::new(send), RecvStream::new(recv)))
+        Ok((
+            SendStream::new(Arc::clone(&id), send),
+            RecvStream::new(id, recv),
+        ))
     }
 
     /// Asynchronously receives an application datagram from the remote peer.
@@ -411,7 +424,7 @@ impl SessionAccept {
             // Decide if we keep looping based on the type.
             match typ {
                 StreamUni::WEBTRANSPORT => {
-                    let recv = RecvStream::new(recv);
+                    let recv = RecvStream::new(Arc::new(recv.id()), recv);
                     return Poll::Ready(Ok(recv));
                 }
                 StreamUni::QPACK_DECODER => {
@@ -471,9 +484,11 @@ impl SessionAccept {
             };
 
             if let Some((send, recv)) = res {
+                debug_assert_eq!(send.id(), recv.id());
+                let id = Arc::new(send.id());
                 // Wrap the streams in our own types for correct error codes.
-                let send = SendStream::new(send);
-                let recv = RecvStream::new(recv);
+                let send = SendStream::new(Arc::clone(&id), send);
+                let recv = RecvStream::new(id, recv);
                 return Poll::Ready(Ok((send, recv)));
             }
 
