@@ -4,10 +4,10 @@
 // This demonstrates how to connect to a WebTransport server from Node.js
 
 import { WebSocket } from "ws";
-import WebTransportSocket from "../src/session";
+import WebTransportWs from "../src/session";
 
 // Install the polyfill globally for Node.js
-globalThis.WebTransport = WebTransportSocket;
+globalThis.WebTransport = WebTransportWs;
 globalThis.WebSocket = WebSocket;
 
 async function main() {

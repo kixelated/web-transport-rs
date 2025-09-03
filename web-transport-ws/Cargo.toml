@@ -1,5 +1,5 @@
 [package]
-name = "web-transport-socket"
+name = "web-transport-ws"
 description = "WebTransport polyfill using WebSockets"
 authors = ["Luke Curley"]
 repository = "https://github.com/kixelated/web-transport-rs"

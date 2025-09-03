@@ -1,6 +1,6 @@
 use tokio::net::TcpListener;
 use web_transport_generic::{RecvStream, SendStream, Session as _};
-use web_transport_socket::Session;
+use web_transport_ws::Session;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {

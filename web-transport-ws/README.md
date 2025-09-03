@@ -16,7 +16,7 @@ This is a simplified version of [QMux](https://datatracker.ietf.org/doc/draft-op
 Check if WebTransport is available, otherwise install the polyfill:
 
 ```javascript
-import { install } from "@kixelated/web-transport-socket"
+import { install } from "@kixelated/web-transport-ws"
 
 // Install the polyfill if needed.
 install();

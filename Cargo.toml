@@ -4,7 +4,7 @@ members = [
     "web-transport-generic",
     "web-transport-proto",
     "web-transport-quinn",
-    "web-transport-socket",
     "web-transport-wasm",
+    "web-transport-ws",
 ]
 resolver = "2"

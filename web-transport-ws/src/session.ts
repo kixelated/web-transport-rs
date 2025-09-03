@@ -2,7 +2,7 @@ import * as Frame from "./frame";
 import * as Stream from "./stream";
 import { VarInt } from "./varint";
 
-export default class WebTransportSocket implements WebTransport {
+export default class WebTransportWs implements WebTransport {
 	#ws: WebSocket;
 	#isServer = false;
 	#closed?: Error;
@@ -36,7 +36,7 @@ export default class WebTransportSocket implements WebTransport {
             console.warn("serverCertificateHashes is not supported; trying anyway");
         }
 
-		url = WebTransportSocket.#convertToWebSocketUrl(url);
+		url = WebTransportWs.#convertToWebSocketUrl(url);
 
 		this.#ws = new WebSocket(url, ["webtransport"]);
 
