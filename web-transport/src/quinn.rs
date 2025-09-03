@@ -189,16 +189,18 @@ impl SendStream {
     }
 
     /// Write some of the buffer to the stream.
+    #[must_use = "returns the number of bytes written"]
     pub async fn write(&mut self, buf: &[u8]) -> Result<usize, Error> {
         self.inner.write(buf).await.map_err(Into::into)
     }
 
     /// Write some of the buffer to the stream, advancing the internal position.
-    pub async fn write_buf<B: Buf>(&mut self, buf: &mut B) -> Result<(), Error> {
+    pub async fn write_buf<B: Buf>(&mut self, buf: &mut B) -> Result<usize, Error> {
         // We use copy_to_bytes+write_chunk so if Bytes is provided, we can avoid allocating.
-        let chunk = buf.copy_to_bytes(buf.chunk().len());
+        let size = buf.chunk().len();
+        let chunk = buf.copy_to_bytes(size);
         self.inner.write_chunk(chunk).await?;
-        Ok(())
+        Ok(size)
     }
 
     /// Set the stream's priority.

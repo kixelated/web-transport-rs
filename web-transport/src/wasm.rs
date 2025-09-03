@@ -122,7 +122,7 @@ impl SendStream {
     }
 
     /// Write some of the given buffer to the stream.
-    pub async fn write_buf<B: Buf>(&mut self, buf: &mut B) -> Result<(), Error> {
+    pub async fn write_buf<B: Buf>(&mut self, buf: &mut B) -> Result<usize, Error> {
         self.0.write_buf(buf).await
     }
 

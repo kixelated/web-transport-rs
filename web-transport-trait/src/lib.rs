@@ -73,12 +73,12 @@ pub trait SendStream: Send {
     fn write_buf<B: Buf + Send>(
         &mut self,
         buf: &mut B,
-    ) -> impl Future<Output = Result<(), Self::Error>> + Send {
+    ) -> impl Future<Output = Result<usize, Self::Error>> + Send {
         async move {
             let chunk = buf.chunk();
             let size = self.write(chunk).await?;
             buf.advance(size);
-            Ok(())
+            Ok(size)
         }
     }
 

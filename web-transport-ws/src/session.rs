@@ -531,7 +531,7 @@ impl generic::SendStream for SendStream {
         Ok(size - b.len())
     }
 
-    async fn write_buf<B: Buf + Send>(&mut self, buf: &mut B) -> Result<(), Self::Error> {
+    async fn write_buf<B: Buf + Send>(&mut self, buf: &mut B) -> Result<usize, Self::Error> {
         if let Some(error) = &self.closed {
             return Err(error.clone());
         }
@@ -553,7 +553,7 @@ impl generic::SendStream for SendStream {
                     return Err(Error::Closed);
                 }
                 self.offset += size as u64;
-                Ok(())
+                Ok(size)
             }
             Some(stop) = self.inbound_stopped.recv() => {
                 Err(self.recv_stop(stop.code))

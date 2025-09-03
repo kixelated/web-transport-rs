@@ -26,12 +26,12 @@ impl SendStream {
     }
 
     /// Writes some of the given buffer to the stream.
-    pub async fn write_buf<B: Buf>(&mut self, buf: &mut B) -> Result<(), Error> {
+    pub async fn write_buf<B: Buf>(&mut self, buf: &mut B) -> Result<usize, Error> {
         let chunk = buf.chunk();
+        let size = chunk.len();
         self.writer.write(&Uint8Array::from(chunk)).await?;
-        buf.advance(chunk.len());
-
-        Ok(())
+        buf.advance(size);
+        Ok(size)
     }
 
     /// Send an immediate reset code, closing the stream with an error.

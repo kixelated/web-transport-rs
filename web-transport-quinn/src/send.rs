@@ -128,12 +128,12 @@ impl web_transport_trait::SendStream for SendStream {
         Self::write(self, buf).await
     }
 
-    async fn write_buf<B: Buf + Send>(&mut self, buf: &mut B) -> Result<(), Self::Error> {
+    async fn write_buf<B: Buf + Send>(&mut self, buf: &mut B) -> Result<usize, Self::Error> {
         // This can avoid making a copy when Buf is Bytes, as Quinn will allocate anyway.
         let size = buf.chunk().len();
         let chunk = buf.copy_to_bytes(size);
         self.write_chunk(chunk).await?;
-        Ok(())
+        Ok(size)
     }
 
     async fn write_chunk(&mut self, chunk: Bytes) -> Result<(), Self::Error> {
