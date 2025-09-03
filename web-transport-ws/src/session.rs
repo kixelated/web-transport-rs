@@ -524,11 +524,14 @@ impl Drop for SendStream {
 impl generic::SendStream for SendStream {
     type Error = Error;
 
-    async fn write(&mut self, buf: &[u8]) -> Result<usize, Self::Error> {
-        self.write_buf(&mut std::io::Cursor::new(buf)).await
+    async fn write(&mut self, mut buf: &[u8]) -> Result<usize, Self::Error> {
+        let size = buf.len();
+        let b = &mut buf;
+        self.write_buf(b).await?;
+        Ok(size - b.len())
     }
 
-    async fn write_buf<B: Buf + Send>(&mut self, buf: &mut B) -> Result<usize, Self::Error> {
+    async fn write_buf<B: Buf + Send>(&mut self, buf: &mut B) -> Result<(), Self::Error> {
         if let Some(error) = &self.closed {
             return Err(error.clone());
         }
@@ -537,7 +540,7 @@ impl generic::SendStream for SendStream {
             return Err(Error::StreamClosed);
         }
 
-        let size = buf.remaining();
+        let size = buf.chunk().len();
         let frame = Stream {
             id: self.id,
             data: buf.copy_to_bytes(size),
@@ -546,12 +549,12 @@ impl generic::SendStream for SendStream {
 
         tokio::select! {
             result = self.outbound.send(frame.into()) => {
-                                if result.is_err() {
-                                    return Err(Error::Closed);
-                                }
-                                self.offset += size as u64;
-                                Ok(size)
-                            }
+                if result.is_err() {
+                    return Err(Error::Closed);
+                }
+                self.offset += size as u64;
+                Ok(())
+            }
             Some(stop) = self.inbound_stopped.recv() => {
                 Err(self.recv_stop(stop.code))
             }
