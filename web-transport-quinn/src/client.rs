@@ -1,10 +1,11 @@
 use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
 
+use crate::crypto;
 use tokio::net::lookup_host;
 use url::{Host, Url};
 
-use crate::{ClientError, Provider, Session, ALPN};
+use crate::{ClientError, Session, ALPN};
 use quinn::{crypto::rustls::QuicClientConfig, rustls};
 use rustls::{client::danger::ServerCertVerifier, pki_types::CertificateDer};
 
@@ -20,7 +21,7 @@ pub enum CongestionControl {
 ///
 /// This is optional; advanced users may use [Client::new] directly.
 pub struct ClientBuilder {
-    provider: Arc<rustls::crypto::CryptoProvider>,
+    provider: crypto::Provider,
     congestion_controller:
         Option<Arc<dyn quinn::congestion::ControllerFactory + Send + Sync + 'static>>,
 }
@@ -29,7 +30,7 @@ impl ClientBuilder {
     /// Create a Client builder, which can be used to establish multiple [Session]s.
     pub fn new() -> Self {
         Self {
-            provider: Arc::new(Provider::default()),
+            provider: crypto::default_provider(),
             congestion_controller: None,
         }
     }
@@ -90,9 +91,10 @@ impl ClientBuilder {
         self,
         certs: Vec<CertificateDer>,
     ) -> Result<Client, ClientError> {
-        let hashes = certs
-            .iter()
-            .map(|cert| Provider::sha256(cert).as_ref().to_vec());
+        let hashes = certs.iter().map({
+            let provider = self.provider.clone();
+            move |cert| crypto::sha256(&provider, cert).as_ref().to_vec()
+        });
 
         self.with_server_certificate_hashes(hashes.collect())
     }
@@ -230,7 +232,7 @@ impl Default for Client {
 
 #[derive(Debug)]
 struct ServerFingerprints {
-    provider: Arc<rustls::crypto::CryptoProvider>,
+    provider: crypto::Provider,
     fingerprints: Vec<Vec<u8>>,
 }
 
@@ -243,7 +245,7 @@ impl ServerCertVerifier for ServerFingerprints {
         _ocsp_response: &[u8],
         _now: rustls::pki_types::UnixTime,
     ) -> Result<rustls::client::danger::ServerCertVerified, rustls::Error> {
-        let cert_hash = Provider::sha256(end_entity);
+        let cert_hash = crypto::sha256(&self.provider, end_entity);
         if self
             .fingerprints
             .iter()
