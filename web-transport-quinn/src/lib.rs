@@ -57,4 +57,4 @@ pub use quinn;
 pub use http;
 
 /// Re-export the generic WebTransport implementation.
-pub use web_transport_generic as generic;
+pub use web_transport_trait as generic;

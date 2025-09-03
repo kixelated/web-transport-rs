@@ -38,7 +38,7 @@ thiserror = "2"
 
 tokio = { version = "1", default-features = false, features = ["macros"] }
 url = "2"
-web-transport-generic = { path = "../web-transport-generic" }
+web-transport-trait = { path = "../web-transport-trait" }
 web-transport-proto = { path = "../web-transport-proto", version = "0.2" }
 
 [dev-dependencies]

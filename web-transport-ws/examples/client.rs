@@ -1,4 +1,4 @@
-use web_transport_generic::{RecvStream, SendStream, Session as _};
+use web_transport_trait::{RecvStream, SendStream, Session as _};
 use web_transport_ws::Session;
 
 #[tokio::main]

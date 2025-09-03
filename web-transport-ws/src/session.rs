@@ -15,8 +15,8 @@ use tokio::{
     sync::{mpsc, watch},
 };
 use tungstenite::{client::IntoClientRequest, handshake::server, http, Message};
-use web_transport_generic as generic;
 use web_transport_proto::VarInt;
+use web_transport_trait as generic;
 
 /// Emulates a WebTransport session over a WebSocket connection.
 #[derive(Clone)]

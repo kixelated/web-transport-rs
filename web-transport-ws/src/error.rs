@@ -48,4 +48,4 @@ impl From<tokio_tungstenite::tungstenite::Error> for Error {
     }
 }
 
-impl web_transport_generic::Error for Error {}
+impl web_transport_trait::Error for Error {}

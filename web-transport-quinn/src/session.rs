@@ -533,7 +533,7 @@ impl SessionAccept {
     }
 }
 
-impl web_transport_generic::Session for Session {
+impl web_transport_trait::Session for Session {
     type SendStream = SendStream;
     type RecvStream = RecvStream;
     type Error = SessionError;
