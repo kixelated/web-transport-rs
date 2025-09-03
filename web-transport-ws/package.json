@@ -1,0 +1,30 @@
+{
+  "name": "@kixelated/web-transport-ws",
+  "version": "0.1.0",
+  "description": "WebTransport polyfill using WebSockets",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "check": "tsc --noEmit",
+    "example": "tsx examples/client.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^24",
+    "typescript": "^5.9.2",
+    "ws": "^8.16.0",
+    "tsx": "^4.20"
+  },
+  "keywords": [
+    "webtransport",
+    "websocket",
+    "polyfill",
+    "quic",
+    "streams"
+  ],
+  "author": "",
+  "license": "MIT"
+}

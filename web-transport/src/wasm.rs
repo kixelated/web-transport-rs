@@ -114,15 +114,15 @@ impl From<web_transport_wasm::Session> for Session {
 pub struct SendStream(web_transport_wasm::SendStream);
 
 impl SendStream {
-    /// Write all of the given data to the stream.
-    pub async fn write(&mut self, buf: &[u8]) -> Result<(), Error> {
-        self.0.write(buf).await
+    /// Write some of the given data to the stream.
+    pub async fn write(&mut self, buf: &[u8]) -> Result<usize, Error> {
+        // NOTE: web-transport-wasm writes the entire buffer.
+        self.0.write(buf).await?;
+        Ok(buf.len())
     }
 
     /// Write some of the given buffer to the stream.
-    ///
-    /// Advances the internal position by the number of bytes written.
-    pub async fn write_buf<B: Buf>(&mut self, buf: &mut B) -> Result<(), Error> {
+    pub async fn write_buf<B: Buf>(&mut self, buf: &mut B) -> Result<usize, Error> {
         self.0.write_buf(buf).await
     }
 

@@ -25,9 +25,11 @@ They are basically UDP packets, except they are encrypted and congestion control
 
 # Crates
 
-This project is broken up into a few different crates:
+This project is broken up into quite a few different crates:
 
+-   [web-transport](web-transport) provides a generic interface, delegating to [web-transport-quinn](web-transport-quinn) or [web-transport-wasm](web-transport-wasm) depending on the platform.
 -   [web-transport-quinn](web-transport-quinn) mirrors the [Quinn API](https://docs.rs/quinn/latest/quinn/index.html), abstracting away the HTTP/3 setup.
 -   [web-transport-wasm](web-transport-wasm) wraps the [browser API](https://developer.mozilla.org/en-US/docs/Web/API/WebTransport_API)
+- [web-transport-ws](web-transport-ws) crudely implements the WebTransport API over WebSockets for backwards compatibility. Also includes a NPM package.
+- [web-transport-trait](web-transport-trait) defines an async trait, currently implemented by [web-transport-quinn](web-transport-quinn) and [web-transport-ws](web-transport-ws).
 -   [web-transport-proto](web-transport-proto) a bare minimum implementation of HTTP/3 just to establish the WebTransport session.
--   [web-transport](web-transport) provides a generic interface, delegating to [web-transport-quinn](web-transport-quinn) or [web-transport-wasm](web-transport-wasm) depending on the platform.

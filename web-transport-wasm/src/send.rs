@@ -19,22 +19,19 @@ impl SendStream {
 
     /// Write *all* of the given bytes to the stream.
     pub async fn write(&mut self, buf: &[u8]) -> Result<(), Error> {
-        let mut buf = std::io::Cursor::new(buf);
-        self.write_buf(&mut buf).await
+        self.writer
+            .write(&Uint8Array::from(buf))
+            .await
+            .map_err(Into::into)
     }
 
-    /// Write the given buffer to the stream.
-    ///
-    /// Advances the buffer by the number of bytes written.
-    /// May be polled/timed out to perform partial writes.
-    pub async fn write_buf<B: Buf>(&mut self, buf: &mut B) -> Result<(), Error> {
-        while buf.has_remaining() {
-            let chunk = buf.chunk();
-            self.writer.write(&Uint8Array::from(chunk)).await?;
-            buf.advance(chunk.len());
-        }
-
-        Ok(())
+    /// Writes some of the given buffer to the stream.
+    pub async fn write_buf<B: Buf>(&mut self, buf: &mut B) -> Result<usize, Error> {
+        let chunk = buf.chunk();
+        let size = chunk.len();
+        self.writer.write(&Uint8Array::from(chunk)).await?;
+        buf.advance(size);
+        Ok(size)
     }
 
     /// Send an immediate reset code, closing the stream with an error.
