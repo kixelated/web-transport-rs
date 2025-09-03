@@ -73,23 +73,30 @@ pub trait SendStream: Send {
     fn write_buf<B: Buf + Send>(
         &mut self,
         buf: &mut B,
-    ) -> impl Future<Output = Result<usize, Self::Error>> + Send;
+    ) -> impl Future<Output = Result<usize, Self::Error>> + Send {
+        async move {
+            let chunk = buf.chunk();
+            let size = self.write(chunk).await?;
+            buf.advance(size);
+            Ok(size)
+        }
+    }
 
-    /// Set the stream's priority.
+    /// Write the given Bytes chunk to the stream.
     ///
-    /// Streams with lower values will be sent first, but are not guaranteed to arrive first.
-    fn set_priority(&mut self, order: i32);
-
-    /// Send an immediate reset code, closing the stream.
-    fn reset(&mut self, code: u32);
-
-    /// Mark the stream as finished and wait for all data to be acknowledged.
-    fn finish(&mut self) -> impl Future<Output = Result<(), Self::Error>> + Send;
-
-    /// Block until the stream is closed by either side.
-    ///
-    // TODO: This should be &self but that requires modifying quinn.
-    fn closed(&mut self) -> impl Future<Output = Result<(), Self::Error>> + Send;
+    /// NOTE: Bytes implements Buf, so write_buf also works.
+    /// This is primarily implemented for symmetry.
+    fn write_chunk(
+        &mut self,
+        chunk: Bytes,
+    ) -> impl Future<Output = Result<(), Self::Error>> + Send {
+        async move {
+            // Just so the arg isn't mut
+            let mut c = chunk;
+            self.write_buf(&mut c).await?;
+            Ok(())
+        }
+    }
 
     /// A helper to write all the data in the buffer.
     fn write_all(&mut self, buf: &[u8]) -> impl Future<Output = Result<(), Self::Error>> + Send {
@@ -114,6 +121,22 @@ pub trait SendStream: Send {
             Ok(())
         }
     }
+
+    /// Set the stream's priority.
+    ///
+    /// Streams with lower values will be sent first, but are not guaranteed to arrive first.
+    fn set_priority(&mut self, order: i32);
+
+    /// Send an immediate reset code, closing the stream.
+    fn reset(&mut self, code: u32);
+
+    /// Mark the stream as finished and wait for all data to be acknowledged.
+    fn finish(&mut self) -> impl Future<Output = Result<(), Self::Error>> + Send;
+
+    /// Block until the stream is closed by either side.
+    ///
+    // TODO: This should be &self but that requires modifying quinn.
+    fn closed(&mut self) -> impl Future<Output = Result<(), Self::Error>> + Send;
 }
 
 /// An incoming stream of bytes from the peer.
@@ -128,8 +151,8 @@ pub trait RecvStream: Send {
     /// This returns a chunk of data instead of copying, which may be more efficient.
     fn read(
         &mut self,
-        max: usize,
-    ) -> impl Future<Output = Result<Option<Bytes>, Self::Error>> + Send;
+        dst: &mut [u8],
+    ) -> impl Future<Output = Result<Option<usize>, Self::Error>> + Send;
 
     /// Read some data into the provided buffer.
     ///
@@ -138,7 +161,37 @@ pub trait RecvStream: Send {
     fn read_buf<B: BufMut + Send>(
         &mut self,
         buf: &mut B,
-    ) -> impl Future<Output = Result<Option<usize>, Self::Error>> + Send;
+    ) -> impl Future<Output = Result<Option<usize>, Self::Error>> + Send {
+        async move {
+            let dst = buf.chunk_mut();
+            let dst = unsafe { &mut *(dst as *mut _ as *mut [u8]) };
+
+            let size = match self.read(dst).await? {
+                Some(size) => size,
+                None => return Ok(None),
+            };
+
+            unsafe { buf.advance_mut(size) };
+
+            Ok(Some(size))
+        }
+    }
+
+    /// Read the next chunk of data, up to the max size.
+    ///
+    /// This returns a chunk of data instead of copying, which may be more efficient.
+    fn read_chunk(
+        &mut self,
+        max: usize,
+    ) -> impl Future<Output = Result<Option<Bytes>, Self::Error>> + Send {
+        async move {
+            // Don't allocate too much. Write your own if you want to increase this buffer.
+            let mut buf = BytesMut::with_capacity(max.max(8 * 1024));
+
+            // TODO Test this, I think it will work?
+            Ok(self.read_buf(&mut buf).await?.map(|_| buf.freeze()))
+        }
+    }
 
     /// Send a `STOP_SENDING` QUIC code.
     fn stop(&mut self, code: u32);

@@ -648,7 +648,7 @@ impl Drop for RecvStream {
 impl generic::RecvStream for RecvStream {
     type Error = Error;
 
-    async fn read(&mut self, max: usize) -> Result<Option<Bytes>, Self::Error> {
+    async fn read_chunk(&mut self, max: usize) -> Result<Option<Bytes>, Self::Error> {
         loop {
             if !self.buffer.is_empty() {
                 let to_read = max.min(self.buffer.len());
@@ -687,7 +687,7 @@ impl generic::RecvStream for RecvStream {
             return Ok(Some(to_read));
         }
 
-        Ok(match self.read(buf.remaining_mut()).await? {
+        Ok(match self.read_chunk(buf.remaining_mut()).await? {
             Some(data) => {
                 let size = data.len();
                 buf.put(data);
@@ -695,6 +695,10 @@ impl generic::RecvStream for RecvStream {
             }
             None => None,
         })
+    }
+
+    async fn read(&mut self, mut buf: &mut [u8]) -> Result<Option<usize>, Self::Error> {
+        self.read_buf(&mut buf).await
     }
 
     fn stop(&mut self, code: u32) {

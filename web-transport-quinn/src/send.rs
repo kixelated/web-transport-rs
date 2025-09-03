@@ -73,7 +73,7 @@ impl SendStream {
         self.stream.write_all_chunks(bufs).await.map_err(Into::into)
     }
 
-    /// Wait until all of the data has been written to the stream. See [`quinn::SendStream::finish`].
+    /// Mark the stream as finished, such that no more data can be written. See [`quinn::SendStream::finish`].
     pub fn finish(&mut self) -> Result<(), ClosedStream> {
         self.stream.finish().map_err(Into::into)
     }
@@ -117,6 +117,7 @@ impl web_transport_generic::SendStream for SendStream {
         Self::reset(self, code).ok();
     }
 
+    // Unlike Quinn, this will also block until the stream is closed.
     async fn finish(&mut self) -> Result<(), Self::Error> {
         Self::finish(self).map_err(|_| WriteError::ClosedStream)?;
         Self::stopped(self).await?;
@@ -128,9 +129,15 @@ impl web_transport_generic::SendStream for SendStream {
     }
 
     async fn write_buf<B: Buf + Send>(&mut self, buf: &mut B) -> Result<usize, Self::Error> {
-        let size = self.write(buf.chunk()).await?;
-        buf.advance(size);
+        let size = buf.remaining();
+        // This can avoid making a copy when Buf is Bytes, as Quinn will allocate anyway.
+        let chunk = buf.copy_to_bytes(size);
+        self.write_chunk(chunk).await?;
         Ok(size)
+    }
+
+    async fn write_chunk(&mut self, chunk: Bytes) -> Result<(), Self::Error> {
+        self.write_chunk(chunk).await
     }
 
     async fn closed(&mut self) -> Result<(), Self::Error> {

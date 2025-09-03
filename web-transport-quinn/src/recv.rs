@@ -4,7 +4,7 @@ use std::{
     task::{Context, Poll},
 };
 
-use bytes::{BufMut, Bytes};
+use bytes::Bytes;
 
 use crate::{ReadError, ReadExactError, ReadToEndError, SessionError};
 
@@ -95,27 +95,14 @@ impl web_transport_generic::RecvStream for RecvStream {
         Self::stop(self, code).ok();
     }
 
-    async fn read(&mut self, max: usize) -> Result<Option<Bytes>, Self::Error> {
+    async fn read(&mut self, dst: &mut [u8]) -> Result<Option<usize>, Self::Error> {
+        self.read(dst).await
+    }
+
+    async fn read_chunk(&mut self, max: usize) -> Result<Option<Bytes>, Self::Error> {
         self.read_chunk(max, true)
             .await
             .map(|r| r.map(|chunk| chunk.bytes))
-    }
-
-    async fn read_buf<B: BufMut + Send>(
-        &mut self,
-        buf: &mut B,
-    ) -> Result<Option<usize>, Self::Error> {
-        let dst = buf.chunk_mut();
-        let dst = unsafe { &mut *(dst as *mut _ as *mut [u8]) };
-
-        let size = match self.inner.read(dst).await? {
-            Some(size) => size,
-            None => return Ok(None),
-        };
-
-        unsafe { buf.advance_mut(size) };
-
-        Ok(Some(size))
     }
 
     async fn closed(&mut self) -> Result<(), Self::Error> {

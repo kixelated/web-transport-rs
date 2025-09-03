@@ -37,16 +37,15 @@ async fn run(stream: tokio::net::TcpStream) -> anyhow::Result<()> {
                 println!("Created unidirectional stream to echo back");
 
                 // NOTE: You should spawn a task to read in parallel
-                while let Some(data) = uni.read(usize::MAX).await? {
-                    println!(
-                        "Received {} bytes on unidirectional stream: {}",
-                        data.len(),
-                        String::from_utf8_lossy(&data)
-                    );
+                let data = uni.read_all().await?;
+                println!(
+                    "Received {} bytes on unidirectional stream: {}",
+                    data.len(),
+                    String::from_utf8_lossy(&data)
+                );
 
-                    println!("Echoing back {} bytes on unidirectional stream: {}", data.len(), String::from_utf8_lossy(&data));
-                    echo.write_all(&data).await?;
-                }
+                println!("Echoing back {} bytes on unidirectional stream: {}", data.len(), String::from_utf8_lossy(&data));
+                echo.write_all(&data).await?;
 
                 echo.finish().await?; // optional, wait for an ack
 
@@ -56,11 +55,11 @@ async fn run(stream: tokio::net::TcpStream) -> anyhow::Result<()> {
                 println!("Accepted bidirectional stream");
 
                 // NOTE: You should spawn a task to read in parallel
-                while let Some(data) = recv.read(usize::MAX).await? {
-                    println!("Received {} bytes on bidirectional stream", data.len());
-                    send.write_all(&data).await?;
-                    println!("Echoing back {} bytes on bidirectional stream: {}", data.len(), String::from_utf8_lossy(&data));
-                }
+                let data = recv.read_all().await?;
+                println!("Received {} bytes on bidirectional stream", data.len());
+
+                send.write_all(&data).await?;
+                println!("Echoing back {} bytes on bidirectional stream: {}", data.len(), String::from_utf8_lossy(&data));
 
                 send.finish().await?; // optional, wait for an ack
 
