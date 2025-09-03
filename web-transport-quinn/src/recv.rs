@@ -87,3 +87,26 @@ impl tokio::io::AsyncRead for RecvStream {
         Pin::new(&mut self.inner).poll_read(cx, buf)
     }
 }
+
+impl web_transport_trait::RecvStream for RecvStream {
+    type Error = ReadError;
+
+    fn stop(&mut self, code: u32) {
+        Self::stop(self, code).ok();
+    }
+
+    async fn read(&mut self, dst: &mut [u8]) -> Result<Option<usize>, Self::Error> {
+        self.read(dst).await
+    }
+
+    async fn read_chunk(&mut self, max: usize) -> Result<Option<Bytes>, Self::Error> {
+        self.read_chunk(max, true)
+            .await
+            .map(|r| r.map(|chunk| chunk.bytes))
+    }
+
+    async fn closed(&mut self) -> Result<(), Self::Error> {
+        self.received_reset().await?;
+        Ok(())
+    }
+}

@@ -1,0 +1,18 @@
+[package]
+name = "web-transport-trait"
+description = "An async WebTransport trait."
+authors = ["Luke Curley"]
+repository = "https://github.com/kixelated/web-transport-rs"
+license = "MIT OR Apache-2.0"
+
+version = "0.1.0"
+edition = "2021"
+
+keywords = ["quic", "http3", "webtransport"]
+categories = ["network-programming", "web-programming"]
+
+# async traits
+rust-version = "1.75"
+
+[dependencies]
+bytes = "1"

@@ -12,10 +12,15 @@ This crate provides a generic WebTransport implementation depending on the platf
 -   Native: [web-transport-quinn](../web-transport-quinn)
 -   WASM: [web-transport-wasm](../web-transport-wasm)
 
+
 ## Why no trait?
 
-[I did make a generic trait](https://docs.rs/webtransport-generic/latest/webtransport_generic/). However, async traits are quite problematic and difficult to use.
-It shortly became impossible when trying to add WASM support because of `!Send`.
+See [web-transport-trait](https://docs.rs/web-transport-trait). 
 
-So this crate switches the implementation based on the underlying platform.
-As an added benefit, you no longer need to litter your code with generics.
+The biggest problem with async traits in Rust is `Send`.
+WASM is `!Send` and as far as I can tell, it's not possible to implement a trait that both can support.
+`web-transport-trait` requires `Send` which rules out WASM.
+
+This crate skirts the issue by switching the underlying implementation based on the platform.
+The compiler can then automatically apply `Send` bounds instead of explicitly requiring them.
+Unfortunate, I know.

@@ -235,3 +235,7 @@ pub enum ServerError {
 //          }
 //     }
 // }
+
+impl web_transport_trait::Error for SessionError {}
+impl web_transport_trait::Error for WriteError {}
+impl web_transport_trait::Error for ReadError {}

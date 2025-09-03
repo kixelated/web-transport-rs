@@ -55,3 +55,6 @@ pub use quinn;
 
 /// Re-export the http crate because it's in the public API.
 pub use http;
+
+/// Re-export the generic WebTransport implementation.
+pub use web_transport_trait as generic;

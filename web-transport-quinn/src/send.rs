@@ -4,7 +4,7 @@ use std::{
     task::{Context, Poll},
 };
 
-use bytes::Bytes;
+use bytes::{Buf, Bytes};
 
 use crate::{ClosedStream, SessionError, WriteError};
 
@@ -73,7 +73,7 @@ impl SendStream {
         self.stream.write_all_chunks(bufs).await.map_err(Into::into)
     }
 
-    /// Wait until all of the data has been written to the stream. See [`quinn::SendStream::finish`].
+    /// Mark the stream as finished, such that no more data can be written. See [`quinn::SendStream::finish`].
     pub fn finish(&mut self) -> Result<(), ClosedStream> {
         self.stream.finish().map_err(Into::into)
     }
@@ -103,5 +103,45 @@ impl tokio::io::AsyncWrite for SendStream {
 
     fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<io::Result<()>> {
         Pin::new(&mut self.stream).poll_shutdown(cx)
+    }
+}
+
+impl web_transport_trait::SendStream for SendStream {
+    type Error = WriteError;
+
+    fn set_priority(&mut self, order: i32) {
+        Self::set_priority(self, order).ok();
+    }
+
+    fn reset(&mut self, code: u32) {
+        Self::reset(self, code).ok();
+    }
+
+    // Unlike Quinn, this will also block until the stream is closed.
+    async fn finish(&mut self) -> Result<(), Self::Error> {
+        Self::finish(self).map_err(|_| WriteError::ClosedStream)?;
+        Self::stopped(self).await?;
+        Ok(())
+    }
+
+    async fn write(&mut self, buf: &[u8]) -> Result<usize, Self::Error> {
+        Self::write(self, buf).await
+    }
+
+    async fn write_buf<B: Buf + Send>(&mut self, buf: &mut B) -> Result<usize, Self::Error> {
+        // This can avoid making a copy when Buf is Bytes, as Quinn will allocate anyway.
+        let size = buf.chunk().len();
+        let chunk = buf.copy_to_bytes(size);
+        self.write_chunk(chunk).await?;
+        Ok(size)
+    }
+
+    async fn write_chunk(&mut self, chunk: Bytes) -> Result<(), Self::Error> {
+        self.write_chunk(chunk).await
+    }
+
+    async fn closed(&mut self) -> Result<(), Self::Error> {
+        self.stopped().await?;
+        Ok(())
     }
 }
