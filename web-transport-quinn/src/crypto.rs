@@ -12,13 +12,17 @@ pub fn default_provider() -> Provider {
         return provider;
     }
 
-    #[cfg(feature = "ring")]
+    #[cfg(feature = "aws-lc-rs")]
+    {
+        Arc::new(rustls::crypto::aws_lc_rs::default_provider())
+    }
+    #[cfg(all(feature = "ring", not(feature = "aws-lc-rs")))]
     {
         Arc::new(rustls::crypto::ring::default_provider())
     }
-    #[cfg(all(feature = "aws-lc-rs", not(feature = "ring")))]
+    #[cfg(not(any(feature = "ring", feature = "aws-lc-rs")))]
     {
-        Arc::new(rustls::crypto::aws_lc_rs::default_provider())
+        panic!("rustls CryptoProvider::set_default() not called and no 'ring'/'aws-lc-rs' feature enabled.");
     }
 }
 
@@ -35,15 +39,16 @@ pub fn sha256(provider: &Provider, cert: &CertificateDer<'_>) -> hash::Output {
         return hash_provider.hash(cert);
     }
 
-    let digest = {
-        #[cfg(feature = "ring")]
-        {
-            ring::digest::digest(&ring::digest::SHA256, cert)
-        }
-        #[cfg(all(feature = "aws-lc-rs", not(feature = "ring")))]
-        {
-            aws_lc_rs::digest::digest(&aws_lc_rs::digest::SHA256, cert)
-        }
-    };
-    hash::Output::new(digest.as_ref())
+    #[cfg(feature = "aws-lc-rs")]
+    {
+        hash::Output::new(aws_lc_rs::digest::digest(&aws_lc_rs::digest::SHA256, cert).as_ref())
+    }
+    #[cfg(all(feature = "ring", not(feature = "aws-lc-rs")))]
+    {
+        return hash::Output::new(ring::digest::digest(&ring::digest::SHA256, cert).as_ref());
+    }
+    #[cfg(not(any(feature = "ring", feature = "aws-lc-rs")))]
+    {
+        panic!("No SHA-256 backend available. Ensure your provider exposes SHA-256 or enable 'ring'/'aws-lc-rs' feature.");
+    }
 }
