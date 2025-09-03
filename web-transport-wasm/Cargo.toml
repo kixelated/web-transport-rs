@@ -2,7 +2,7 @@
 name = "web-transport-wasm"
 description = "WebTransport WASM bindings"
 authors = ["Luke Curley"]
-repository = "https://github.com/kixelated/web-transport-rs"
+repository = "https://github.com/kixelated/web-transport"
 license = "MIT OR Apache-2.0"
 
 version = "0.5.1"

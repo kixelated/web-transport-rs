@@ -2,7 +2,7 @@
 name = "web-transport-quinn"
 description = "WebTransport library for Quinn"
 authors = ["Luke Curley"]
-repository = "https://github.com/kixelated/web-transport-rs"
+repository = "https://github.com/kixelated/web-transport"
 license = "MIT OR Apache-2.0"
 
 version = "0.7.3"
@@ -39,7 +39,7 @@ thiserror = "2"
 tokio = { version = "1", default-features = false, features = ["io-util", "macros"] }
 url = "2"
 web-transport-proto = { path = "../web-transport-proto", version = "0.2" }
-web-transport-trait = { path = "../web-transport-trait" }
+web-transport-trait = { path = "../web-transport-trait", version = "0.1" }
 
 [dev-dependencies]
 anyhow = "1"
