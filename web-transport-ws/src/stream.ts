@@ -1,4 +1,4 @@
-import { VarInt } from "./varint";
+import { VarInt } from "./varint.ts";
 
 export const Dir = {
 	Bi: 0,

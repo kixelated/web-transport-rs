@@ -1,5 +1,5 @@
-import * as Stream from "./stream";
-import { VarInt } from "./varint";
+import * as Stream from "./stream.ts";
+import { VarInt } from "./varint.ts";
 
 const RESET_STREAM = 0x04;
 const STOP_SENDING = 0x05;

@@ -1,6 +1,6 @@
-import * as Frame from "./frame";
-import * as Stream from "./stream";
-import { VarInt } from "./varint";
+import * as Frame from "./frame.ts";
+import * as Stream from "./stream.ts";
+import { VarInt } from "./varint.ts";
 
 export default class WebTransportWs implements WebTransport {
 	#ws: WebSocket;
