@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.1](https://github.com/kixelated/web-transport/compare/web-transport-quinn-v0.8.0...web-transport-quinn-v0.8.1) - 2025-09-04
+
+### Other
+
+- Correct features to avoid ring if desired. ([#98](https://github.com/kixelated/web-transport/pull/98))
+
 ## [0.8.0](https://github.com/kixelated/web-transport/compare/web-transport-quinn-v0.7.3...web-transport-quinn-v0.8.0) - 2025-09-03
 
 ### Other
