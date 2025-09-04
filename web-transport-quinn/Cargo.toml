@@ -13,8 +13,8 @@ categories = ["network-programming", "web-programming"]
 
 [features]
 default = ["aws-lc-rs"]
-aws-lc-rs = ["dep:aws-lc-rs", "quinn/aws-lc-rs", "rustls/aws-lc-rs"]
-ring = ["dep:ring", "quinn/ring", "rustls/ring"]
+aws-lc-rs = ["dep:aws-lc-rs", "quinn/rustls-aws-lc-rs", "rustls/aws-lc-rs"]
+ring = ["dep:ring", "quinn/rustls-ring", "rustls/ring"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
@@ -25,8 +25,11 @@ futures = "0.3"
 http = "1"
 log = "0.4"
 
-quinn = "0.11"
-quinn-proto = "0.11"
+quinn = { version = "0.11", default-features = false, features = [
+    "platform-verifier",
+    "runtime-tokio",
+    "bloom",
+] }
 ring = { version = "0.17.13", optional = true }
 
 rustls = { version = "0.23", default-features = false, features = [
