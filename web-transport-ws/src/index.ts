@@ -1,4 +1,4 @@
-import WebTransportWs from "./session";
+import WebTransportWs from "./session.ts";
 
 // Install polyfill if WebTransport is not available, returning true if installed
 export function install(): boolean {
