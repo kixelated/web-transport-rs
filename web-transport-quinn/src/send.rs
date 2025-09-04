@@ -1,8 +1,7 @@
-use std::{
-    io,
-    pin::Pin,
-    task::{Context, Poll},
-};
+use std::io;
+use std::pin::Pin;
+use std::sync::Arc;
+use std::task::{Context, Poll};
 
 use bytes::{Buf, Bytes};
 
@@ -15,11 +14,14 @@ use crate::{ClosedStream, SessionError, WriteError};
 #[derive(Debug)]
 pub struct SendStream {
     stream: quinn::SendStream,
+    /// If this `SendStream` is part of a bidirectional stream, the `RecvStream`
+    /// should have a matching id (using the same `Arc` pointee).
+    id: Arc<quinn::StreamId>,
 }
 
 impl SendStream {
-    pub(crate) fn new(stream: quinn::SendStream) -> Self {
-        Self { stream }
+    pub(crate) fn new(id: Arc<quinn::StreamId>, stream: quinn::SendStream) -> Self {
+        Self { stream, id }
     }
 
     /// Abruptly reset the stream with the provided error code. See [`quinn::SendStream::reset`].
@@ -84,6 +86,16 @@ impl SendStream {
 
     pub fn priority(&self) -> Result<i32, ClosedStream> {
         self.stream.priority().map_err(Into::into)
+    }
+
+    /// A stable identifier for this stream.
+    ///
+    /// If this `SendStream` is part of a bidirectional stream, the `RecvStream`
+    /// would have a matching stable id.
+    ///
+    /// This value will remain fixed for the lifetime of the stream.
+    pub fn stable_id(&self) -> usize {
+        &*self.id as *const _ as usize
     }
 }
 

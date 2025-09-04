@@ -1,8 +1,7 @@
-use std::{
-    io,
-    pin::Pin,
-    task::{Context, Poll},
-};
+use std::io;
+use std::pin::Pin;
+use std::sync::Arc;
+use std::task::{Context, Poll};
 
 use bytes::Bytes;
 
@@ -12,11 +11,14 @@ use crate::{ReadError, ReadExactError, ReadToEndError, SessionError};
 #[derive(Debug)]
 pub struct RecvStream {
     inner: quinn::RecvStream,
+    /// If this `RecvStream` is part of a bidirectional stream, the `SendStream`
+    /// should have a matching id (using the same `Arc` pointee).
+    id: Arc<quinn::StreamId>,
 }
 
 impl RecvStream {
-    pub(crate) fn new(stream: quinn::RecvStream) -> Self {
-        Self { inner: stream }
+    pub(crate) fn new(id: Arc<quinn::StreamId>, stream: quinn::RecvStream) -> Self {
+        Self { inner: stream, id }
     }
 
     /// Tell the other end to stop sending data with the given error code. See [`quinn::RecvStream::stop`].
@@ -73,6 +75,16 @@ impl RecvStream {
             Err(quinn::ResetError::ConnectionLost(e)) => Err(e.into()),
             Err(quinn::ResetError::ZeroRttRejected) => unreachable!("0-RTT not supported"),
         }
+    }
+
+    /// A stable identifier for this stream.
+    ///
+    /// If this `RecvStream` is part of a bidirectional stream, the `SendStream`
+    /// would have a matching stable id.
+    ///
+    /// This value will remain fixed for the lifetime of the stream.
+    pub fn stable_id(&self) -> usize {
+        &*self.id as *const _ as usize
     }
 
     // We purposely don't expose the stream ID or 0RTT because it's not valid with WebTransport
