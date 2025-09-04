@@ -41,16 +41,5 @@ pub fn sha256(provider: &Provider, cert: &CertificateDer<'_>) -> hash::Output {
         return hash_provider.hash(cert);
     }
 
-    #[cfg(feature = "aws-lc-rs")]
-    {
-        hash::Output::new(aws_lc_rs::digest::digest(&aws_lc_rs::digest::SHA256, cert).as_ref())
-    }
-    #[cfg(all(feature = "ring", not(feature = "aws-lc-rs")))]
-    {
-        return hash::Output::new(ring::digest::digest(&ring::digest::SHA256, cert).as_ref());
-    }
-    #[cfg(not(any(feature = "ring", feature = "aws-lc-rs")))]
-    {
-        panic!("No SHA-256 backend available. Ensure your provider exposes SHA-256 or enable 'ring'/'aws-lc-rs' feature.");
-    }
+    panic!("No SHA-256 backend available. Ensure your provider exposes SHA-256 or enable the 'ring'/'aws-lc-rs' feature.");
 }
