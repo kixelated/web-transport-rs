@@ -25,7 +25,6 @@
 
 // External
 mod client;
-pub(crate) mod crypto;
 mod error;
 mod recv;
 mod send;
@@ -48,6 +47,9 @@ use settings::*;
 
 /// The HTTP/3 ALPN is required when negotiating a QUIC connection.
 pub const ALPN: &str = "h3";
+
+/// Export our simple crypto provider.
+pub mod crypto;
 
 /// Re-export the underlying QUIC implementation.
 pub use quinn;

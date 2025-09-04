@@ -58,9 +58,9 @@ async fn main() -> anyhow::Result<()> {
         .context("missing private key")?;
 
     // Standard Quinn setup
-    let mut config = rustls::ServerConfig::builder_with_provider(Arc::new(
-        rustls::crypto::ring::default_provider(),
-    ))
+    let mut config = rustls::ServerConfig::builder_with_provider(
+        web_transport_quinn::crypto::default_provider(),
+    )
     .with_protocol_versions(&[&rustls::version::TLS13])?
     .with_no_client_auth()
     .with_single_cert(chain, key)?;

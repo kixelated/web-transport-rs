@@ -12,17 +12,19 @@ pub fn default_provider() -> Provider {
         return provider;
     }
 
-    #[cfg(feature = "aws-lc-rs")]
+    #[cfg(all(feature = "aws-lc-rs", not(feature = "ring")))]
     {
-        Arc::new(rustls::crypto::aws_lc_rs::default_provider())
+        return Arc::new(rustls::crypto::aws_lc_rs::default_provider());
     }
     #[cfg(all(feature = "ring", not(feature = "aws-lc-rs")))]
     {
-        Arc::new(rustls::crypto::ring::default_provider())
+        return Arc::new(rustls::crypto::ring::default_provider());
     }
-    #[cfg(not(any(feature = "ring", feature = "aws-lc-rs")))]
+    #[allow(unreachable_code)]
     {
-        panic!("rustls CryptoProvider::set_default() not called and no 'ring'/'aws-lc-rs' feature enabled.");
+        panic!(
+        "CryptoProvider::set_default() must be called; or only enable one ring/aws-lc-rs feature."
+    );
     }
 }
 

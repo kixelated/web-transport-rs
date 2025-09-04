@@ -51,7 +51,5 @@ web-transport-trait = { path = "../web-transport-trait", version = "0.1" }
 anyhow = "1"
 clap = { version = "4", features = ["derive"] }
 env_logger = "0.11"
-quinn = "0.11"
-rustls = "0.23"
 rustls-pemfile = "2"
 tokio = { version = "1", features = ["full"] }
