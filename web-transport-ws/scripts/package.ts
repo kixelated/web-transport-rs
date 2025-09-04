@@ -9,21 +9,25 @@ console.log("✍️  Rewriting package.json...");
 const pkg = JSON.parse(readFileSync("package.json", "utf8"));
 
 function rewritePath(p: string): string {
-	return p.replace(/^\.\/src/, ".").replace(/\.ts(x)?$/, ".js");
+	return p.replace(/^\.\/src/, ".");
 }
 
-pkg.main &&= rewritePath(pkg.main);
+function rewriteExtension(p: string): string {
+	return p.replace(/\.ts(x)?$/, ".js");
+}
+
+pkg.main &&= rewriteExtension(rewritePath(pkg.main));
 pkg.types &&= rewritePath(pkg.types);
 
 if (pkg.exports) {
 	for (const key in pkg.exports) {
 		const val = pkg.exports[key];
 		if (typeof val === "string") {
-			pkg.exports[key] = rewritePath(val);
+			pkg.exports[key] = rewriteExtension(rewritePath(val));
 		} else if (typeof val === "object") {
 			for (const sub in val) {
 				if (typeof val[sub] === "string") {
-					val[sub] = rewritePath(val[sub]);
+					val[sub] = rewriteExtension(rewritePath(val[sub]));
 				}
 			}
 		}
@@ -31,7 +35,7 @@ if (pkg.exports) {
 }
 
 if (pkg.sideEffects) {
-	pkg.sideEffects = pkg.sideEffects.map(rewritePath);
+	pkg.sideEffects = pkg.sideEffects.map(rewriteExtension).map(rewritePath);
 }
 
 if (pkg.files) {
