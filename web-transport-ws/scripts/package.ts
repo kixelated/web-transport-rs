@@ -66,5 +66,7 @@ writeFileSync("dist/package.json", JSON.stringify(pkg, null, 2));
 // Copy static files
 console.log("📄 Copying README.md...");
 copyFileSync("README.md", join("dist", "README.md"));
+copyFileSync("../LICENSE-MIT", join("dist", "LICENSE-MIT"));
+copyFileSync("../LICENSE-APACHE", join("dist", "LICENSE-APACHE"));
 
 console.log("📦 Package built successfully in dist/");

@@ -11,9 +11,7 @@
   },
   "types": "./src/index.ts",
   "files": [
-    "./src",
-    "README.md",
-    "tsconfig.json"
+    "./src"
   ],
   "scripts": {
     "build": "rimraf dist && tsc && tsx scripts/package.ts",
